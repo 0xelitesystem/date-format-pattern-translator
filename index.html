@@ -1,0 +1,1596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Date Format Pattern Translator: one pattern, five dialects</title>
+<meta name="description" content="Paste a date format pattern and see what it prints under UTS 35 (CLDR 48.2 week data), date-fns, moment, POSIX strftime and .NET for a date and region you pick, then get the equivalent pattern in each, including the late-December week-year trap where YYYY prints next year. Runs entirely in your browser.">
+<link rel="canonical" href="https://0xelitesystem.github.io/date-format-pattern-translator/">
+<meta property="og:title" content="Date Format Pattern Translator">
+<meta property="og:description" content="One date format pattern read five ways (UTS 35, date-fns, moment, strftime, .NET), translated between them, with a live round trip over eleven years of dates.">
+<meta property="og:url" content="https://0xelitesystem.github.io/date-format-pattern-translator/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Date Format Pattern Translator","applicationCategory":"DeveloperApplication","operatingSystem":"Any (browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://0xelitesystem.github.io/date-format-pattern-translator/","author":{"@type":"Person","name":"0xelitesystem","url":"https://elitesystem.ai"}}
+</script>
+<script>
+(function () {
+  var KEY = "theme";
+  var t = null;
+  try { t = localStorage.getItem(KEY); } catch (e) {}
+  if (t !== "light" && t !== "dark") {
+    t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }
+  document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
+<style>
+:root {
+  --bg: #f6f6f2;
+  --surface: #ffffff;
+  --surface-2: #efefe9;
+  --ink: #15171a;
+  --ink-soft: #464b53;
+  --muted: #c9ccc4;
+  --accent: #2d6b00;
+  --accent-ink: #ffffff;
+  --ok: #2d6b00;
+  --warn: #8a4d00;
+  --err: #a82d14;
+  --code-bg: #eeefe8;
+  --focus: #2d6b00;
+}
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --surface: #151515;
+  --surface-2: #1d1d1d;
+  --ink: #ececec;
+  --ink-soft: #b4b4b4;
+  --muted: #3a3a3a;
+  --accent: #d4ff3a;
+  --accent-ink: #0a0a0a;
+  --ok: #d4ff3a;
+  --warn: #ffb85c;
+  --err: #ff8f7a;
+  --code-bg: #1b1b1b;
+  --focus: #d4ff3a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0a0a; --surface: #151515; --surface-2: #1d1d1d; --ink: #ececec; --ink-soft: #b4b4b4;
+    --muted: #3a3a3a; --accent: #d4ff3a; --accent-ink: #0a0a0a; --ok: #d4ff3a; --warn: #ffb85c;
+    --err: #ff8f7a; --code-bg: #1b1b1b; --focus: #d4ff3a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; min-width: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+:root:not([data-theme="dark"]) a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px;
+}
+h1 { font-size: clamp(22px, 4.6vw, 30px); line-height: 1.2; margin: 0 0 6px; }
+h2 { font-size: clamp(17px, 3.2vw, 20px); margin: 30px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--muted); }
+h3 { font-size: 16px; margin: 0 0 6px; }
+p { margin: 8px 0; }
+code, pre, .mono, input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+code { background: var(--code-bg); border: 1px solid var(--muted); border-radius: 4px; padding: 0 4px; font-size: .92em; word-break: break-word; }
+.top { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.top .lede { flex: 1 1 340px; min-width: 0; }
+.tagline { color: var(--ink-soft); margin: 0; }
+.theme-btn {
+  font: inherit; font-size: 14px; cursor: pointer; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--ink-soft); border-radius: 8px; padding: 6px 12px; min-height: 36px;
+}
+.panel { background: var(--surface); border: 1px solid var(--muted); border-radius: 10px; padding: 14px; min-width: 0; }
+.panel + .panel { margin-top: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+label.f { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.hint { display: block; color: var(--ink-soft); font-size: 13px; font-weight: 400; margin-top: 3px; }
+input[type="text"], input[type="number"], select {
+  width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--ink-soft); border-radius: 8px; padding: 7px 9px; min-height: 38px; min-width: 0;
+}
+input.big { font-size: 18px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.row > * { min-width: 0; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 6px; }
+.check input { margin-top: 3px; flex: none; }
+button.btn {
+  font: inherit; font-weight: 600; cursor: pointer; background: var(--surface-2); color: var(--ink);
+  border: 1px solid var(--ink-soft); border-radius: 8px; padding: 7px 12px; min-height: 38px;
+}
+button.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.status { font-size: 14px; color: var(--ink-soft); }
+.msg-err { color: var(--err); font-weight: 600; }
+.msg-warn { color: var(--warn); font-weight: 600; }
+.msg-ok { color: var(--ok); font-weight: 600; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--muted); border-radius: 10px; padding: 12px; min-width: 0; }
+.card .sub { color: var(--ink-soft); font-size: 13px; margin: 0 0 8px; }
+.out { background: var(--code-bg); border: 1px solid var(--muted); border-radius: 8px; padding: 8px 10px; margin: 8px 0 0; font-size: 17px; white-space: pre-wrap; word-break: break-all; }
+.out.err { color: var(--err); font-size: 14px; font-weight: 600; }
+ol.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+ol.chips li { border: 1px solid var(--muted); background: var(--surface-2); border-radius: 8px; padding: 4px 7px; font-size: 13px; max-width: 100%; min-width: 0; }
+ol.chips li .t { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: pre-wrap; word-break: break-all; }
+ol.chips li .m { display: block; color: var(--ink-soft); }
+ol.chips li .v { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+ol.chips li.k-lit { border-style: dashed; }
+ol.chips li.k-err { border-color: var(--err); }
+ol.chips li.k-err .m { color: var(--err); font-weight: 600; }
+ol.chips li.k-warn { border-color: var(--warn); }
+ol.chips li.k-warn .m { color: var(--warn); font-weight: 600; }
+ol.chips li.k-ne .m, ol.chips li.k-bad .m { color: var(--warn); }
+.notes { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.notes li { margin: 2px 0; }
+.tablewrap { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--muted); padding: 7px 8px; }
+th { font-size: 13px; color: var(--ink-soft); font-weight: 700; }
+td .pat { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 700; white-space: pre-wrap; word-break: break-all; }
+details { border: 1px solid var(--muted); border-radius: 10px; padding: 8px 12px; background: var(--surface); margin-top: 12px; }
+details > summary { cursor: pointer; font-weight: 700; }
+.trap { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+.small { font-size: 13px; color: var(--ink-soft); }
+footer { margin-top: 36px; font-size: 14px; color: var(--ink-soft); border-top: 1px solid var(--muted); padding-top: 12px; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 520px) { .out { font-size: 15px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="lede">
+    <h1>Date Format Pattern Translator</h1>
+    <p class="tagline">One pattern, read by five formatters: UTS 35 (CLDR 48.2 week data), date-fns 4.x, moment 2.x, POSIX strftime and .NET custom format strings. See what each prints for your date and region, then get the same meaning written in each dialect, checked by a live round trip.</p>
+  </div>
+  <button type="button" class="theme-btn" id="theme-toggle" aria-label="Switch to dark theme">Dark theme</button>
+</header>
+
+<section class="panel" aria-labelledby="in-h">
+  <h2 id="in-h" style="margin-top:0">Pattern, date and rules</h2>
+  <div class="grid">
+    <div>
+      <label class="f" for="pat">Pattern</label>
+      <input id="pat" class="mono big" type="text" value="YYYY-MM-DD" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="pat-h">
+      <span class="hint" id="pat-h">Try <code>YYYY-MM-dd</code>, <code>%G-W%V-%u</code>, <code>gggg-[W]ww</code> or <code>dd MMM yyyy</code>.</span>
+    </div>
+    <div>
+      <label class="f" for="dt">Date and wall-clock time</label>
+      <input id="dt" class="mono big" type="text" value="2026-12-28 12:00:00.000" spellcheck="false" autocomplete="off" aria-describedby="dt-h">
+      <span class="hint" id="dt-h">YYYY-MM-DD HH:mm:ss.SSS, years 1000 to 9999. No time zone is applied.</span>
+    </div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div>
+      <label class="f" for="region">UTS 35 region (CLDR territory code)</label>
+      <input id="region" class="mono" type="text" value="US" list="region-list" spellcheck="false" autocomplete="off" aria-describedby="region-h">
+      <datalist id="region-list">
+        <option value="US">US, Sunday start, minDays 1</option>
+        <option value="DE">DE, Monday start, minDays 4 (ISO-like)</option>
+        <option value="GB">GB, Monday start, minDays 4</option>
+        <option value="PT">PT, Sunday start, minDays 4</option>
+        <option value="IS">IS, Sunday start, minDays 4</option>
+        <option value="AU">AU, Monday start, minDays 1</option>
+        <option value="IN">IN, Sunday start, minDays 1</option>
+        <option value="EG">EG, Saturday start, minDays 1</option>
+        <option value="MV">MV, Friday start, minDays 1</option>
+        <option value="001">001, world default</option>
+      </datalist>
+      <span class="hint" id="region-h">Two letters or a three-digit code. Territories in no list inherit 001 (Monday, minDays 1). Language tags are not accepted.</span>
+      <span class="hint" id="region-rule" aria-live="polite"></span>
+    </div>
+    <div>
+      <label class="f" for="dfns-loc">date-fns week options</label>
+      <select id="dfns-loc" aria-describedby="dfns-h"></select>
+      <span class="hint" id="dfns-h">weekStartsOn / firstWeekContainsDate as set in that date-fns 4.4.0 locale. Names stay enUS. Default enUS is date-fns's fallback.</span>
+      <label class="check"><input id="flag-wy" type="checkbox"> <span><code>useAdditionalWeekYearTokens</code></span></label>
+      <label class="check"><input id="flag-doy" type="checkbox"> <span><code>useAdditionalDayOfYearTokens</code></span></label>
+    </div>
+    <div>
+      <label class="f" for="mom-pre">moment week rule (dow / doy)</label>
+      <select id="mom-pre">
+        <option value="0/6">en: dow 0, doy 6</option>
+        <option value="1/4">en-gb, de, fr, pt, is: dow 1, doy 4</option>
+        <option value="0/4">en-au: dow 0, doy 4</option>
+        <option value="6/12">ar: dow 6, doy 12</option>
+        <option value="custom">custom</option>
+      </select>
+      <div class="row" style="margin-top:6px">
+        <label class="sr" for="mom-dow">dow</label><input id="mom-dow" type="number" min="0" max="6" value="0" style="width:5.5em" aria-label="moment dow">
+        <label class="sr" for="mom-doy">doy</label><input id="mom-doy" type="number" min="0" max="12" value="6" style="width:5.5em" aria-label="moment doy">
+      </div>
+      <span class="hint" id="mom-rule" aria-live="polite"></span>
+    </div>
+    <div>
+      <label class="f" for="plat">strftime platform</label>
+      <select id="plat">
+        <option value="posix">POSIX.1-2024 only</option>
+        <option value="glibc">glibc extensions</option>
+        <option value="msvc">MSVC (Microsoft C runtime)</option>
+      </select>
+      <span class="hint">C / POSIX locale. glibc and MSVC extensions are marked where used.</span>
+    </div>
+  </div>
+  <p class="status" id="in-status" role="status" aria-live="polite"></p>
+</section>
+
+<h2 id="va-h">View A: the same string, read by every dialect</h2>
+<p class="small">The literal pattern above is tokenized by each formatter. Each chip shows the token, what it means in that dialect, and what it printed.</p>
+<div class="cards" id="view-a" aria-labelledby="va-h"></div>
+
+<h2 id="vb-h">View B: the same meaning, written in each dialect</h2>
+<div class="panel">
+  <div class="row">
+    <div style="flex:1 1 260px">
+      <label class="f" for="src">Read the pattern as</label>
+      <select id="src">
+        <option value="uts">UTS 35 (CLDR 48.2 week data)</option>
+        <option value="dfns">date-fns 4.x</option>
+        <option value="mom">moment 2.x</option>
+        <option value="strf">strftime</option>
+        <option value="net">.NET custom format</option>
+      </select>
+    </div>
+    <button type="button" class="btn" id="guess">Guess the dialect</button>
+  </div>
+  <p class="status" id="guess-out" aria-live="polite"></p>
+  <p class="small">The source pattern is parsed into fields. Each field is written in every other dialect. A field with no equivalent is named, never dropped. The round trip renders source and translation with this page's engines on every day from 2020-01-01 to 2030-12-31, once at 12:00:00.000 and once with the time of day stepped through all 24 hours, and counts how many outputs match.</p>
+  <div class="tablewrap"><table id="view-b"><caption class="sr">Translations of the source pattern</caption><thead><tr><th scope="col">Dialect</th><th scope="col">Pattern</th><th scope="col">Prints now</th><th scope="col">Round trip</th><th scope="col">Notes</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<h2 id="trap-h">Trap dates: where week-year is not calendar year</h2>
+<div class="panel">
+  <div class="row">
+    <div style="flex:0 1 160px">
+      <label class="f" for="trap-year">Year</label>
+      <input id="trap-year" type="number" min="1001" max="9998" value="2026">
+    </div>
+    <p class="small" style="flex:1 1 300px">Computed for the rules picked above. Every day of that year whose week-based year differs from its calendar year is listed. Nothing here is a hardcoded list.</p>
+  </div>
+  <div id="trap-out"></div>
+</div>
+
+<details id="st-box">
+  <summary>Self test <span id="st-sum"></span></summary>
+  <p class="small">Runs on load and on demand. Fixtures were measured on real engines; oracles are recomputed here. A positive control must fail and be reported as detected.</p>
+  <button type="button" class="btn primary" id="st-run">Run self test</button>
+  <p id="st-status" role="status" aria-live="polite"></p>
+  <ol id="st-list" class="notes"></ol>
+</details>
+
+<h2>Reference notes</h2>
+<details>
+  <summary>Rules this page models, and where they come from</summary>
+  <ul class="notes">
+    <li><strong>UTS 35</strong>: field meanings and valid lengths from the Part 4 Date Field Symbol Table. A valid letter at an invalid length prints U+FFFD and an undefined letter is an error, per Part 1 "Handling Invalid Patterns". This is the spec's recommended behavior, not a claim about any one library. <code>j</code>, <code>J</code> and <code>C</code> are skeleton-only and must not occur in patterns. Week rules come from CLDR 48.2 weekData (firstDay and minDays); entries with <code>alt="variant"</code> are ignored. Only a region with a Monday first day AND minDays 4 behaves like ISO 8601: PT and IS have minDays 4 but start weeks on Sunday. Names are CLDR English.</li>
+    <li><strong>CLDR 47 to 48 change</strong>: the only weekData difference between release-47 and release-48-2 is IS moving from the Monday list to the Sunday list. <span id="is-note"></span></li>
+    <li><strong>date-fns</strong>: its own column, because it reads week options from its own locale files, and several differ from CLDR. Tokens that are exactly <code>D</code>, <code>DD</code>, <code>YY</code> or <code>YYYY</code> throw RangeError unless the matching opt-in flag is set. Any other run of Y or D only warns and still formats. An unescaped latin letter that is not a formatter throws RangeError while tokenizing, before that check. <code>P</code> and <code>p</code> expand with the enUS long formats.</li>
+    <li><strong>moment</strong>: tokenized with the 2.30.1 regex, greedy longest match, en locale names. Week rule minDays = 7 + dow - doy. moment <code>e</code> is 0-based; UTS 35 <code>e</code> is 1-based. moment 2.31.0 (published to npm 2026-09-15) adds an <code>eHHmm</code> token; its output equals <code>e</code> followed by <code>HHmm</code>.</li>
+    <li><strong>strftime</strong>: <code>%G</code>, <code>%g</code> and <code>%V</code> are ISO 8601. <code>%U</code> counts from the first Sunday and <code>%W</code> from the first Monday; earlier days are week 00. The <code>0</code> and <code>+</code> flags with a minimum field width are POSIX.1-2024, for <code>%C %F %G %Y</code> only. <code>-</code>, <code>_</code> and <code>^</code> are glibc extensions; <code>#</code> is an MSVC extension. <code>%e</code> is space padded, so it is not the same as an unpadded day.</li>
+    <li><strong>.NET</strong>: custom format strings with InvariantCulture on a DateTime of Kind Unspecified. A one-character format string is a STANDARD format, so a lone <code>d</code> prints a short date and a lone <code>h</code> throws FormatException; write <code>%d</code> or <code>%h</code> for the custom specifier. Characters that are not specifiers are copied unchanged, which is why <code>YYYY</code> and <code>DD</code> echo. There is no week-year and no day-of-year specifier (System.Globalization.ISOWeek is an API, not a format letter).</li>
+    <li><strong>Java and Swift (not computed here)</strong>: Java SE 25 <code>DateTimeFormatter</code> documents <code>Y</code> as week-based-year, <code>u</code> as year, <code>y</code> as year-of-era, <code>D</code> as day-of-year (up to three letters), <code>e</code> and <code>c</code> as localized day-of-week, <code>n</code> as nano-of-second, <code>[ ]</code> as optional sections, and all A to Z and a to z as reserved. Its older <code>SimpleDateFormat</code> documents <code>u</code> as day number of week (1 = Monday, ..., 7 = Sunday). Apple's archived Data Formatting Guide says DateFormatter uses the format patterns from UTS 35, with the version varying by operating system release.</li>
+    <li><strong>Not evaluated</strong>: zone fields (UTS <code>z Z O v V X x</code>, date-fns <code>X x O z</code>, moment <code>Z ZZ z zz</code>, strftime <code>%z %Z</code>, .NET <code>z zz zzz</code>), timestamps, and <code>W F g U b B</code> are recognized and named but print a placeholder, because their value depends on a time zone or on data this page does not carry. All arithmetic uses the wall-clock time you typed, with UTC date math, so no daylight-saving shift can creep in.</li>
+  </ul>
+  <p class="small">Sources: UTS 35 Part 4 (Dates) and Part 1, version 48.2; CLDR release-48-2 supplementalData.xml and en.xml; POSIX.1-2024 strftime and the POSIX locale (XBD 7.3.5); the glibc manual, Formatting Calendar Time; Microsoft Learn pages for MSVC strftime and .NET custom and standard date and time format strings; the moment docs and its 2.30.1 source; the date-fns 4.4.0 package; Java SE 25 DateTimeFormatter and SimpleDateFormat; Apple's archived Data Formatting Guide. Every link is listed in the <a href="https://github.com/0xelitesystem/date-format-pattern-translator#what-is-modeled-and-the-limits">README</a>.</p>
+</details>
+<details>
+  <summary>Third-party notices</summary>
+  <ul class="notes">
+    <li>CLDR weekData (the firstDay and minDays territory lists, generated from release-48-2 supplementalData.xml) and the CLDR English month, weekday, quarter, era and day-period names. Unicode License v3. Copyright © 2004-2026 Unicode, Inc.</li>
+    <li>moment 2.30.1: the format tokenizer regular expression, the en long date formats, and the week values (dow, doy) of the en, en-gb, en-au, de, fr, pt, is and ar locales. MIT License. Copyright (c) JS Foundation and other contributors.</li>
+    <li>date-fns 4.4.0: the format tokenizer regular expressions, the protected-token rule and the locale week values (weekStartsOn, firstWeekContainsDate). MIT License. Copyright (c) 2021 Sasha Koss and Lesha Koss https://kossnocorp.mit-license.org.</li>
+    <li>Licence texts and links: see the <a href="https://github.com/0xelitesystem/date-format-pattern-translator#third-party-notices">README</a>.</li>
+    <li>The UTS 35, strftime and .NET behavior was reimplemented from the specifications and measured empirically; no code from those implementations is reproduced here.</li>
+  </ul>
+</details>
+
+<footer>
+  <p>Independent project. Not affiliated with or endorsed by Unicode, Microsoft, the moment or date-fns projects, Oracle or Apple. Product names are used only to identify the formats being compared.</p>
+  <p>Everything runs in your browser. Nothing you type leaves this page; it makes no network requests. MIT licensed. <a href="https://github.com/0xelitesystem/date-format-pattern-translator">Source</a> · <a href="https://elitesystem.ai">elitesystem.ai</a></p>
+</footer>
+</div>
+
+<script id="engine">
+var DFPT = (function () {
+  "use strict";
+  var DAY = 86400000;
+  // Generated at build time from CLDR release-48-2 supplementalData.xml weekData (alt="variant" ignored).
+  var CLDR_FIRST = {"mon":"001 AD AE AI AL AM AN AR AT AU AX AZ BA BE BG BM BN BY CH CL CM CN CR CY CZ DE DK EC EE ES FI FJ FO FR GB GE GF GP GR HR HU IE IT KG KZ LB LI LK LT LU LV MC MD ME MK MN MQ MY NL NO NZ PL RE RO RS RU SE SI SK SM TJ TM TR UA UY UZ VA VN XK","fri":"MV","sat":"AF BH DJ DZ EG IQ IR JO KW LY OM QA SD SY","sun":"AG AS BD BR BS BT BW BZ CA CO DM DO ET GT GU HK HN ID IL IN IS JM JP KE KH KR LA MH MM MO MT MX MZ NI NP PA PE PH PK PR PT PY SA SG SV TH TT TW UM US VE VI WS YE ZA ZW"};
+  var CLDR_MIN = {"1":"001 GU UM US VI","4":"AD AN AT AX BE BG CH CZ DE DK EE ES FI FJ FO FR GB GF GG GI GP GR HU IE IM IS IT JE LI LT LU MC MQ NL NO PL PT RE RU SE SJ SK SM VA"};
+  // Generated at build time from date-fns 4.4.0 locale options: name:weekStartsOn:firstWeekContainsDate.
+  var DFNS_LOCALES = "af:0:1 ar:6:1 arDZ:0:1 arEG:0:1 arMA:1:1 arSA:0:1 arTN:1:1 az:1:1 be:1:1 beTarask:1:1 bg:1:1 bn:0:1 bs:1:4 ca:1:4 ckb:0:1 cs:1:4 cy:0:1 da:1:4 de:1:4 deAT:1:4 el:1:4 enAU:1:4 enCA:0:1 enGB:1:4 enIE:1:4 enIN:1:4 enNZ:1:4 enUS:0:1 enZA:0:1 eo:1:4 es:1:1 et:1:4 eu:1:1 faIR:6:1 fi:1:4 fr:1:4 frCA:0:1 frCH:1:4 fy:1:4 gd:0:1 gl:1:1 gu:1:4 he:0:1 hi:0:4 hr:1:1 ht:1:4 hu:1:4 hy:1:1 id:1:1 is:1:4 it:1:4 itCH:1:4 ja:0:1 jaHira:0:1 ka:1:1 kk:1:1 km:0:1 kn:1:1 ko:0:1 lb:1:4 lt:1:4 lv:1:4 mk:1:4 mn:1:1 ms:1:1 mt:1:4 nb:1:4 nl:1:4 nlBE:1:4 nn:1:4 oc:1:4 pl:1:4 pt:0:4 ptBR:0:1 ro:1:1 ru:1:1 se:1:4 sk:1:4 sl:1:1 sq:1:1 sr:1:1 srLatn:1:1 sv:1:4 ta:1:4 te:0:1 th:0:1 tr:1:1 ug:0:1 uk:1:1 uz:1:1 uzCyrl:1:1 vi:1:1 zhCN:1:4 zhHK:0:1 zhTW:1:4";
+
+  var DAYIDX = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+  var DAYNAME = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  var FIRST = {}, MIN = {};
+  Object.keys(CLDR_FIRST).forEach(function (d) { CLDR_FIRST[d].split(" ").forEach(function (t) { FIRST[t] = DAYIDX[d]; }); });
+  Object.keys(CLDR_MIN).forEach(function (n) { CLDR_MIN[n].split(" ").forEach(function (t) { MIN[t] = +n; }); });
+
+  // CLDR English (release-48-2 en.xml, gregorian). date-fns enUS, moment en, .NET invariant and the POSIX locale use the same month and weekday names.
+  var EN = {
+    monW: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    monA: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    monN: ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+    dayW: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    dayA: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    dayN: ["S", "M", "T", "W", "T", "F", "S"],
+    dayS: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+    qA: ["Q1", "Q2", "Q3", "Q4"],
+    qW: ["1st quarter", "2nd quarter", "3rd quarter", "4th quarter"]
+  };
+
+  function mod(a, n) { return ((a % n) + n) % n; }
+  function pad(n, w) { var s = String(Math.abs(n)); while (s.length < w) s = "0" + s; return (n < 0 ? "-" : "") + s; }
+  function spad(n, w) { var s = String(n); while (s.length < w) s = " " + s; return s; }
+  function dayNum(y, m, d) { var dt = new Date(0); dt.setUTCFullYear(y, m - 1, d); dt.setUTCHours(0, 0, 0, 0); return Math.round(dt.getTime() / DAY); }
+  function ctx(y, m, d, h, mi, s, ms) {
+    var dn = dayNum(y, m, d);
+    return { y: y, m: m, d: d, h: h || 0, mi: mi || 0, s: s || 0, ms: ms || 0, dn: dn, wd: mod(dn + 4, 7), doy: dn - dayNum(y, 1, 1) + 1 };
+  }
+  function ctxFromDn(dn, h, mi, s, ms) { var dt = new Date(dn * DAY); return ctx(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate(), h, mi, s, ms); }
+  function isoDow(c) { return c.wd || 7; }
+
+  // Week algorithm. first: 0..6 = Monday..Sunday. minDays: 1..7.
+  var W1 = {};
+  function week1Start(y, first, minDays) {
+    var k = y + ":" + first + ":" + minDays;
+    var v = W1[k];
+    if (v !== undefined) return v;
+    var j1 = dayNum(y, 1, 1);
+    var ws = j1 - mod((mod(j1 + 4, 7) || 7) - 1 - first, 7);
+    var inNew = 7 - (j1 - ws);
+    v = inNew >= minDays ? ws : ws + 7;
+    W1[k] = v;
+    return v;
+  }
+  function weekInfo(c, first, minDays) {
+    for (var y = c.y + 1; y >= c.y - 1; y--) {
+      var s = week1Start(y, first, minDays);
+      if (c.dn >= s) return { wy: y, w: Math.floor((c.dn - s) / 7) + 1 };
+    }
+    return null;
+  }
+  function localDow(c, first) { return mod(isoDow(c) - 1 - first, 7) + 1; }
+  var ISO = { first: 0, minDays: 4, label: "ISO 8601" };
+
+  function regionRule(code) {
+    var t = String(code || "").trim().toUpperCase();
+    if (!/^([A-Z]{2}|[0-9]{3})$/.test(t)) return null;
+    var inF = Object.prototype.hasOwnProperty.call(FIRST, t), inM = Object.prototype.hasOwnProperty.call(MIN, t);
+    var first = inF ? FIRST[t] : FIRST["001"], minDays = inM ? MIN[t] : MIN["001"];
+    return { region: t, first: first, minDays: minDays, inherited: !inF || !inM, label: t + ": " + DAYNAME[first] + " start, minDays " + minDays };
+  }
+  function dfnsRule(wso, fwcd) { return { first: mod(wso + 6, 7), minDays: fwcd, label: "weekStartsOn " + wso + ", firstWeekContainsDate " + fwcd }; }
+  function momRule(dow, doy) { return { first: mod(dow + 6, 7), minDays: 7 + dow - doy, dow: dow, doy: doy, label: "dow " + dow + ", doy " + doy + " (minDays " + (7 + dow - doy) + ")" }; }
+  function dfnsLocales() { return DFNS_LOCALES.split(" ").map(function (s) { var a = s.split(":"); return { name: a[0], wso: +a[1], fwcd: +a[2] }; }); }
+
+  function ordEn(n) {
+    var r100 = n % 100;
+    if (r100 > 20 || r100 < 10) { switch (r100 % 10) { case 1: return n + "st"; case 2: return n + "nd"; case 3: return n + "rd"; } }
+    return n + "th";
+  }
+  function ordMoment(n) {
+    var b = n % 10, t = Math.floor((n % 100) / 10) === 1;
+    return n + (t ? "th" : b === 1 ? "st" : b === 2 ? "nd" : b === 3 ? "rd" : "th");
+  }
+  function hasLetter(s) { return /[A-Za-z]/.test(s); }
+  function NE(label) { return "‹" + label + "›"; }
+
+  // Each compiled part: { raw, lit } or { raw, fn(c,o) -> string, m: meaning, k: kind, sem, w }
+  function L(raw, text, note) { return { raw: raw, lit: text, m: note || "literal", k: "lit" }; }
+
+  /* ---------------- UTS 35 ---------------- */
+  var UTS_LEN = { G: [1, 5], y: [1, 99], Y: [1, 99], u: [1, 99], U: [1, 5], r: [1, 99], Q: [1, 5], q: [1, 5], M: [1, 5], L: [1, 5], l: [1, 1],
+    w: [1, 2], W: [1, 1], d: [1, 2], D: [1, 3], F: [1, 1], g: [1, 99], E: [1, 6], e: [1, 6], c: [1, 6], a: [1, 5], b: [1, 5], B: [1, 5],
+    h: [1, 2], H: [1, 2], K: [1, 2], k: [1, 2], m: [1, 2], s: [1, 2], S: [1, 99], A: [1, 99], z: [1, 4], Z: [1, 5], O: [1, 4], v: [1, 4], V: [1, 4], X: [1, 5], x: [1, 5] };
+  var UTS_NE = { U: "cyclic year name", W: "week of month", F: "day of week in month", g: "modified Julian day", b: "am, pm, noon, midnight", B: "flexible day period",
+    z: "zone name", Z: "zone offset", O: "localized GMT offset", v: "generic zone name", V: "zone ID or city", X: "ISO 8601 zone, Z for UTC", x: "ISO 8601 zone" };
+  function nameByWidth(arr, len, i, widths) { return arr[widths[len] || 0][i]; }
+  function utsField(f, n, rule) {
+    var p = { raw: f + new Array(n).join(f), k: "field" };
+    if (f === "j" || f === "J" || f === "C") { p.k = "err"; p.m = "skeleton-only symbol; must not occur in a pattern"; p.err = true; return p; }
+    var lim = UTS_LEN[f];
+    if (!lim) { p.k = "err"; p.m = "undefined pattern letter"; p.err = true; return p; }
+    if (n < lim[0] || n > lim[1] || ((f === "O" || f === "v") && n !== 1 && n !== 4)) {
+      p.k = "bad"; p.m = "valid letter, invalid length: U+FFFD"; p.fn = function () { return "�"; }; return p;
+    }
+    if (UTS_NE[f]) { p.k = "ne"; p.m = UTS_NE[f] + " (recognized, not evaluated)"; p.fn = function () { return NE(UTS_NE[f]); }; p.sem = "ne"; return p; }
+    var Y = function (c) { return weekInfo(c, rule.first, rule.minDays); };
+    switch (f) {
+      case "G": p.m = n <= 3 ? "era, abbreviated" : n === 4 ? "era, wide" : "era, narrow"; p.sem = n <= 3 ? "era" : n === 4 ? "eraW" : null;
+        p.fn = function () { return n <= 3 ? "AD" : n === 4 ? "Anno Domini" : "A"; }; break;
+      case "y": case "u": case "r":
+        if (f === "y" && n === 2) { p.m = "calendar year, two low-order digits"; p.sem = "year2"; p.fn = function (c) { return pad(c.y % 100, 2); }; }
+        else { p.m = (f === "y" ? "calendar year" : f === "u" ? "extended year" : "related Gregorian year") + ", at least " + n + " digit" + (n > 1 ? "s" : ""); p.sem = n <= 4 ? "year" : "yearN"; p.w = n; p.fn = function (c) { return pad(c.y, n); }; }
+        break;
+      case "Y":
+        p.m = "week-based year (" + rule.label + ")" + (n === 2 ? ", two low-order digits" : ", at least " + n + " digit" + (n > 1 ? "s" : ""));
+        p.sem = n === 2 ? "wyear2" : n <= 4 ? "wyear" : null;
+        p.fn = function (c) { var w = Y(c); return n === 2 ? pad(w.wy % 100, 2) : pad(w.wy, n); }; break;
+      case "Q": case "q":
+        p.m = "quarter" + (n === 1 ? "" : n === 2 ? ", 2 digits" : n === 3 ? ", abbreviated" : n === 4 ? ", wide" : ", narrow");
+        p.sem = n === 1 || n === 5 ? "quarter" : n === 2 ? "quarter2" : n === 3 ? "quarterA" : "quarterW";
+        p.fn = function (c) { var q = Math.ceil(c.m / 3); return n === 1 || n === 5 ? String(q) : n === 2 ? pad(q, 2) : n === 3 ? EN.qA[q - 1] : EN.qW[q - 1]; }; break;
+      case "M": case "L":
+        p.m = (f === "L" ? "stand-alone " : "") + "month" + ["", " number", ", 2 digits", ", abbreviated", ", wide", ", narrow"][n];
+        p.sem = ["", "month", "month2", "monA", "monW", "monN"][n];
+        p.fn = function (c) { return n === 1 ? String(c.m) : n === 2 ? pad(c.m, 2) : n === 3 ? EN.monA[c.m - 1] : n === 4 ? EN.monW[c.m - 1] : EN.monN[c.m - 1]; }; break;
+      case "l": p.m = "deprecated, ignored"; p.k = "ne"; p.sem = "empty"; p.fn = function () { return ""; }; break;
+      case "w": p.m = "week of year (" + rule.label + ")" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "week" : "week2";
+        p.fn = function (c) { return pad(Y(c).w, n); }; break;
+      case "d": p.m = "day of month" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "day" : "day2"; p.fn = function (c) { return pad(c.d, n); }; break;
+      case "D": p.m = "day of year, at least " + n + " digit" + (n > 1 ? "s" : ""); p.sem = ["", "doy", "doy2", "doy3"][n]; p.fn = function (c) { return pad(c.doy, n); }; break;
+      case "E": case "e": case "c":
+        if (f !== "E" && n <= 2) {
+          p.m = "local day of week, 1 = " + DAYNAME[rule.first] + (f === "e" && n === 2 ? ", 2 digits" : "");
+          p.sem = (f === "e" && n === 2) ? "locWd1_2" : "locWd1";
+          p.fn = function (c) { var v = localDow(c, rule.first); return f === "e" ? pad(v, n) : String(v); };
+        } else {
+          var wn = f === "E" ? (n <= 3 ? 3 : n) : n;
+          p.m = "weekday name, " + { 3: "abbreviated", 4: "wide", 5: "narrow", 6: "short" }[wn];
+          p.sem = { 3: "wdA", 4: "wdW", 5: "wdN", 6: "wdS" }[wn];
+          p.fn = function (c) { return (wn === 3 ? EN.dayA : wn === 4 ? EN.dayW : wn === 5 ? EN.dayN : EN.dayS)[c.wd]; };
+        }
+        break;
+      case "a": p.m = "AM or PM" + (n === 5 ? ", narrow" : ""); p.sem = n === 5 ? "ampmN" : "ampm";
+        p.fn = function (c) { return n === 5 ? (c.h < 12 ? "a" : "p") : (c.h < 12 ? "AM" : "PM"); }; break;
+      case "h": p.m = "hour 1 to 12" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h12" : "h12_2"; p.fn = function (c) { return pad(c.h % 12 || 12, n); }; break;
+      case "H": p.m = "hour 0 to 23" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h24" : "h24_2"; p.fn = function (c) { return pad(c.h, n); }; break;
+      case "K": p.m = "hour 0 to 11" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h11" : "h11_2"; p.fn = function (c) { return pad(c.h % 12, n); }; break;
+      case "k": p.m = "hour 1 to 24" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h24k" : "h24k_2"; p.fn = function (c) { return pad(c.h || 24, n); }; break;
+      case "m": p.m = "minute" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "min" : "min2"; p.fn = function (c) { return pad(c.mi, n); }; break;
+      case "s": p.m = "second" + (n === 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "sec" : "sec2"; p.fn = function (c) { return pad(c.s, n); }; break;
+      case "S": p.m = "fractional second, " + n + " digit" + (n > 1 ? "s" : "") + ", truncated"; p.sem = "frac"; p.w = n;
+        p.fn = function (c) { return n <= 3 ? pad(Math.floor(c.ms / Math.pow(10, 3 - n)), n) : pad(c.ms, 3) + new Array(n - 2).join("0"); }; break;
+      case "A": p.m = "milliseconds in day, at least " + n + " digit" + (n > 1 ? "s" : ""); p.sem = "msday"; p.w = n;
+        p.fn = function (c) { return pad(((c.h * 60 + c.mi) * 60 + c.s) * 1000 + c.ms, n); }; break;
+    }
+    return p;
+  }
+  function compileUTS(pat, o) {
+    var parts = [], i = 0, n = pat.length, err = null, rule = o.uRule;
+    while (i < n) {
+      var ch = pat[i], j;
+      if (ch === "'") {
+        if (pat[i + 1] === "'") { parts.push(L("''", "'", "quoted apostrophe")); i += 2; continue; }
+        j = i + 1; var txt = "", closed = false;
+        while (j < n) { if (pat[j] === "'") { if (pat[j + 1] === "'") { txt += "'"; j += 2; continue; } closed = true; j++; break; } txt += pat[j]; j++; }
+        parts.push(L(pat.slice(i, j), txt, closed ? "quoted literal" : "quoted literal, no closing quote (read to end)"));
+        i = j; continue;
+      }
+      if (/[A-Za-z]/.test(ch)) {
+        j = i; while (j < n && pat[j] === ch) j++;
+        var f = utsField(ch, j - i, rule);
+        if (f.err && !err) err = "Error: " + f.m + " (" + f.raw + "). UTS 35 says to reject the pattern.";
+        parts.push(f); i = j; continue;
+      }
+      j = i; while (j < n && pat[j] !== "'" && !/[A-Za-z]/.test(pat[j])) j++;
+      parts.push(L(pat.slice(i, j), pat.slice(i, j))); i = j;
+    }
+    return { parts: parts, error: err };
+  }
+
+  /* ---------------- date-fns 4.4.0 ---------------- */
+  // Tokenizer regular expressions and protected-token rule from date-fns 4.4.0 (MIT, see notices).
+  var DF_LONG = /P+p+|P+|p+|''|'(''|[^'])+('|$)|./g;
+  var DF_TOK = /[yYQqMLwIdDecihHKkms]o|(\w)\1*|''|'(''|[^'])+('|$)|./g;
+  var DF_THROW = ["D", "DD", "YY", "YYYY"];
+  var DF_FMT = "GyYRuQqMLwIdDEecihabBHKkmsSXxOztT";
+  var DF_LONGF = { date: { P: "MM/dd/yyyy", PP: "MMM d, y", PPP: "MMMM do, y", PPPP: "EEEE, MMMM do, y" },
+    time: { p: "h:mm a", pp: "h:mm:ss a", ppp: "h:mm:ss a z", pppp: "h:mm:ss a zzzz" },
+    dt: { P: "{{date}}, {{time}}", PP: "{{date}}, {{time}}", PPP: "{{date}} 'at' {{time}}", PPPP: "{{date}} 'at' {{time}}" } };
+  function dfLong(s) {
+    if (s[0] === "p") return DF_LONGF.time[s] || DF_LONGF.time.pppp;
+    var m = s.match(/(P+)(p+)?/) || [];
+    var dp = m[1], tp = m[2];
+    var d = DF_LONGF.date[dp] || DF_LONGF.date.PPPP;
+    if (!tp) return d;
+    return (DF_LONGF.dt[dp] || DF_LONGF.dt.PPPP).replace("{{date}}", d).replace("{{time}}", DF_LONGF.time[tp] || DF_LONGF.time.pppp);
+  }
+  function dfField(tok, rule) {
+    var f = tok[0], n = tok.length, ord = n === 2 && tok[1] === "o";
+    var p = { raw: tok, k: "field" };
+    var WK = function (c) { return weekInfo(c, rule.first, rule.minDays); };
+    function names(arr, i) { return arr[i]; }
+    switch (f) {
+      case "G": p.m = "era"; p.sem = tok === "GGGGG" ? null : (n <= 3 ? "era" : "eraW");
+        p.fn = function () { return n <= 3 ? "AD" : tok === "GGGGG" ? "A" : "Anno Domini"; }; break;
+      case "y": if (ord) { p.m = "calendar year, ordinal"; p.sem = "yearO"; p.fn = function (c) { return ordEn(c.y); }; }
+        else if (tok === "yy") { p.m = "calendar year, two low-order digits"; p.sem = "year2"; p.fn = function (c) { return pad(c.y % 100, 2); }; }
+        else { p.m = "calendar year, at least " + n + " digit" + (n > 1 ? "s" : ""); p.sem = n <= 4 ? "year" : "yearN"; p.w = n; p.fn = function (c) { return pad(c.y, n); }; }
+        break;
+      case "Y": if (ord) { p.m = "week-based year, ordinal"; p.sem = null; p.fn = function (c) { return ordEn(WK(c).wy); }; }
+        else { p.m = "local week-based year (" + rule.label + ")" + (tok === "YY" ? ", two low-order digits" : ""); p.sem = tok === "YY" ? "wyear2" : n <= 4 ? "wyear" : null;
+          p.fn = function (c) { var w = WK(c).wy; return tok === "YY" ? pad(w % 100, 2) : pad(w, n); }; }
+        break;
+      case "R": p.m = "ISO week-numbering year"; p.sem = n <= 4 ? "iyear" : null; p.fn = function (c) { return pad(weekInfo(c, 0, 4).wy, n); }; break;
+      case "u": p.m = "extended year"; p.sem = n <= 4 ? "year" : "yearN"; p.w = n; p.fn = function (c) { return pad(c.y, n); }; break;
+      case "Q": case "q":
+        p.m = "quarter"; p.sem = ord ? "quarterO" : n === 1 || n === 5 ? "quarter" : n === 2 ? "quarter2" : n === 3 ? "quarterA" : "quarterW";
+        p.fn = function (c) { var q = Math.ceil(c.m / 3); if (ord) return ordEn(q); return n === 1 || n === 5 ? String(q) : n === 2 ? pad(q, 2) : n === 3 ? EN.qA[q - 1] : EN.qW[q - 1]; }; break;
+      case "M": case "L":
+        p.m = "month"; p.sem = ord ? "monthO" : n === 1 ? "month" : n === 2 ? "month2" : n === 3 ? "monA" : n === 5 ? "monN" : "monW";
+        p.fn = function (c) { if (ord) return ordEn(c.m); return n === 1 ? String(c.m) : n === 2 ? pad(c.m, 2) : n === 3 ? EN.monA[c.m - 1] : n === 5 ? EN.monN[c.m - 1] : EN.monW[c.m - 1]; }; break;
+      case "w": p.m = "local week of year (" + rule.label + ")"; p.sem = ord ? "weekO" : n === 1 ? "week" : n === 2 ? "week2" : null;
+        p.fn = function (c) { var w = WK(c).w; return ord ? ordEn(w) : pad(w, n); }; break;
+      case "I": p.m = "ISO week of year"; p.sem = ord ? "iweekO" : n === 1 ? "iweek" : n === 2 ? "iweek2" : null;
+        p.fn = function (c) { var w = weekInfo(c, 0, 4).w; return ord ? ordEn(w) : pad(w, n); }; break;
+      case "d": p.m = "day of month"; p.sem = ord ? "dayO" : n === 1 ? "day" : n === 2 ? "day2" : null;
+        p.fn = function (c) { return ord ? ordEn(c.d) : pad(c.d, n); }; break;
+      case "D": p.m = "day of year"; p.sem = ord ? "doyO" : ["", "doy", "doy2", "doy3"][n] || null;
+        p.fn = function (c) { return ord ? ordEn(c.doy) : pad(c.doy, n); }; break;
+      case "E": p.m = "weekday name"; var ew = n <= 3 ? 3 : n === 5 ? 5 : n === 6 ? 6 : 4;
+        p.sem = { 3: "wdA", 4: "wdW", 5: "wdN", 6: "wdS" }[ew];
+        p.fn = function (c) { return (ew === 3 ? EN.dayA : ew === 4 ? EN.dayW : ew === 5 ? EN.dayN : EN.dayS)[c.wd]; }; break;
+      case "e": case "c": case "i":
+        var isI = f === "i";
+        if (n <= 2 || ord) {
+          p.m = isI ? "ISO day of week, 1 = Monday" : "local day of week, 1 = " + DAYNAME[rule.first];
+          p.sem = ord ? null : isI ? (n === 1 ? "isoWd" : null) : (n === 1 ? "locWd1" : "locWd1_2");
+          p.fn = function (c) { var v = isI ? isoDow(c) : localDow(c, rule.first); return ord ? ordEn(v) : n === 1 ? String(v) : pad(v, 2); };
+        } else {
+          var w2 = n === 3 ? 3 : n === 5 ? 5 : n === 6 ? 6 : 4;
+          p.m = "weekday name"; p.sem = { 3: "wdA", 4: "wdW", 5: "wdN", 6: "wdS" }[w2];
+          p.fn = function (c) { return (w2 === 3 ? EN.dayA : w2 === 4 ? EN.dayW : w2 === 5 ? EN.dayN : EN.dayS)[c.wd]; };
+        }
+        break;
+      case "a": p.m = "AM or PM";
+        p.sem = n <= 2 ? "ampm" : n === 3 ? "ampmL" : n === 5 ? "ampmN" : null;
+        p.fn = function (c) { var pm = c.h >= 12; return n <= 2 ? (pm ? "PM" : "AM") : n === 3 ? (pm ? "pm" : "am") : n === 5 ? (pm ? "p" : "a") : (pm ? "p.m." : "a.m."); }; break;
+      case "b": case "B": p.k = "ne"; p.m = (f === "b" ? "am, pm, noon, midnight" : "flexible day period") + " (recognized, not evaluated)"; p.sem = "ne"; p.fn = function () { return NE(f === "b" ? "am, pm, noon, midnight" : "flexible day period"); }; break;
+      case "h": case "H": case "K": case "k":
+        var hm = { h: ["hour 1 to 12", "h12"], H: ["hour 0 to 23", "h24"], K: ["hour 0 to 11", "h11"], k: ["hour 1 to 24", "h24k"] }[f];
+        p.m = hm[0]; p.sem = ord ? null : n === 1 ? hm[1] : n === 2 ? hm[1] + "_2" : null;
+        p.fn = function (c) { var v = f === "h" ? (c.h % 12 || 12) : f === "H" ? c.h : f === "K" ? c.h % 12 : (c.h || 24); return ord ? ordEn(v) : pad(v, n); }; break;
+      case "m": case "s": p.m = f === "m" ? "minute" : "second"; p.sem = ord ? null : n === 1 ? (f === "m" ? "min" : "sec") : n === 2 ? (f === "m" ? "min2" : "sec2") : null;
+        p.fn = function (c) { var v = f === "m" ? c.mi : c.s; return ord ? ordEn(v) : pad(v, n); }; break;
+      case "S": p.m = "fractional second, " + n + " digit" + (n > 1 ? "s" : ""); p.sem = "frac"; p.w = n;
+        p.fn = function (c) { return pad(Math.trunc(c.ms * Math.pow(10, n - 3)), n); }; break;
+      case "X": case "x": case "O": case "z": p.k = "ne"; p.m = "time zone (recognized, not evaluated)"; p.sem = "ne"; p.fn = function () { return NE("zone"); }; break;
+      case "t": case "T": p.k = "ne"; p.m = "Unix timestamp (recognized, not evaluated)"; p.sem = "ne"; p.fn = function () { return NE("timestamp"); }; break;
+    }
+    return p;
+  }
+  function compileDF(pat, o) {
+    var expanded = (pat.match(DF_LONG) || []).map(function (s) { return (s[0] === "p" || s[0] === "P") ? dfLong(s) : s; }).join("");
+    var toks = expanded.match(DF_TOK) || [];
+    var parts = [], err = null, warns = [];
+    for (var i = 0; i < toks.length; i++) {
+      var s = toks[i];
+      if (s === "''") { parts.push(L(s, "'", "two quotes, one apostrophe")); continue; }
+      if (s[0] === "'") { var mm = s.match(/^'([^]*?)'?$/); parts.push(L(s, mm ? mm[1].replace(/''/g, "'") : s, "quoted literal")); continue; }
+      if (DF_FMT.indexOf(s[0]) >= 0) { parts.push(dfField(s, o.dRule)); continue; }
+      if (/[a-zA-Z]/.test(s[0])) {
+        parts.push({ raw: s, k: "err", m: "unescaped latin letter that is not a formatter", err: true });
+        if (!err) err = "RangeError: Format string contains an unescaped latin alphabet character `" + s[0] + "`";
+        continue;
+      }
+      parts.push(L(s, s));
+    }
+    if (!err) {
+      for (var k = 0; k < parts.length; k++) {
+        var p = parts[k];
+        if (p.lit !== undefined || p.err) continue;
+        var t = p.raw;
+        if ((!o.dFlags.wy && /^Y+$/.test(t)) || (!o.dFlags.doy && /^D+$/.test(t))) {
+          if (DF_THROW.indexOf(t) >= 0) {
+            p.k = "err"; p.m = (t[0] === "Y" ? "protected week-year token" : "protected day-of-year token") + ": throws without the opt-in flag";
+            if (!err) err = "RangeError (date-fns throws on exactly D, DD, YY, YYYY without the opt-in flag)";
+          } else {
+            p.k = "warn"; p.m = p.m + "; console.warn: use " + t.toLowerCase() + " instead?";
+            warns.push(t);
+          }
+        }
+      }
+    }
+    return { parts: parts, error: err, warns: warns, expanded: expanded !== pat ? expanded : null };
+  }
+
+  /* ---------------- moment 2.30.1, en ---------------- */
+  // Tokenizer regular expression copied verbatim from moment 2.30.1 src/lib/format/format.js (MIT, see notices).
+  var MOM_TOK = /(\[[^\[]*\])|(\\)?([Hh]mm(ss)?|Mo|MM?M?M?|Do|DDDo|DD?D?D?|ddd?d?|do?|w[o|w]?|W[o|W]?|Qo?|N{1,5}|YYYYYY|YYYYY|YYYY|YY|y{2,4}|yo?|gg(ggg?)?|GG(GGG?)?|e|E|a|A|hh?|HH?|kk?|mm?|ss?|S{1,9}|x|X|zz?|ZZ?|.)/g;
+  var MOM_LOCAL = /(\[[^\[]*\])|(\\)?(LTS|LT|LL?L?L?|l{1,4})/g;
+  var MOM_LONG = { LTS: "h:mm:ss A", LT: "h:mm A", L: "MM/DD/YYYY", LL: "MMMM D, YYYY", LLL: "MMMM D, YYYY h:mm A", LLLL: "dddd, MMMM D, YYYY h:mm A",
+    l: "M/D/YYYY", ll: "MMM D, YYYY", lll: "MMM D, YYYY h:mm A", llll: "ddd, MMM D, YYYY h:mm A" };
+  function momWeek(c, rule) {
+    // moment's own week arithmetic (firstWeekOffset, weeksInYear), reimplemented.
+    var dow = rule.dow, doy = rule.doy;
+    function fwo(y) { var fwd = 7 + dow - doy; var fwdlw = mod(7 + mod(dayNum(y, 1, fwd) + 4, 7) - dow, 7); return -fwdlw + fwd - 1; }
+    function diy(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 366 : 365; }
+    function wiy(y) { return (diy(y) - fwo(y) + fwo(y + 1)) / 7; }
+    var wk = Math.floor((c.doy - fwo(c.y) - 1) / 7) + 1, ry = c.y;
+    if (wk < 1) { ry = c.y - 1; wk = wk + wiy(ry); } else if (wk > wiy(c.y)) { wk = wk - wiy(c.y); ry = c.y + 1; }
+    return { wy: ry, w: wk };
+  }
+  function momFn(tok, rule) {
+    var WK = function (c) { return momWeek(c, rule); };
+    var ISOW = function (c) { return weekInfo(c, 0, 4); };
+    var T = {
+      M: ["month number", "month", function (c) { return String(c.m); }],
+      MM: ["month, 2 digits", "month2", function (c) { return pad(c.m, 2); }],
+      Mo: ["month, ordinal", "monthO", function (c) { return ordMoment(c.m); }],
+      MMM: ["month, short name", "monA", function (c) { return EN.monA[c.m - 1]; }],
+      MMMM: ["month, full name", "monW", function (c) { return EN.monW[c.m - 1]; }],
+      Q: ["quarter", "quarter", function (c) { return String(Math.ceil(c.m / 3)); }],
+      Qo: ["quarter, ordinal", "quarterO", function (c) { return ordMoment(Math.ceil(c.m / 3)); }],
+      D: ["day of month", "day", function (c) { return String(c.d); }],
+      DD: ["day of month, 2 digits", "day2", function (c) { return pad(c.d, 2); }],
+      Do: ["day of month, ordinal", "dayO", function (c) { return ordMoment(c.d); }],
+      DDD: ["day of year", "doy", function (c) { return String(c.doy); }],
+      DDDD: ["day of year, 3 digits", "doy3", function (c) { return pad(c.doy, 3); }],
+      DDDo: ["day of year, ordinal", "doyO", function (c) { return ordMoment(c.doy); }],
+      d: ["day of week, 0 = Sunday", "wd0", function (c) { return String(c.wd); }],
+      "do": ["day of week, ordinal", null, function (c) { return ordMoment(c.wd); }],
+      dd: ["weekday, min name", "wdS", function (c) { return EN.dayS[c.wd]; }],
+      ddd: ["weekday, short name", "wdA", function (c) { return EN.dayA[c.wd]; }],
+      dddd: ["weekday, full name", "wdW", function (c) { return EN.dayW[c.wd]; }],
+      e: ["locale day of week, 0-based (0 = dow)", "locWd0", function (c) { return String(mod(c.wd - rule.dow, 7)); }],
+      E: ["ISO day of week, 1 = Monday", "isoWd", function (c) { return String(isoDow(c)); }],
+      w: ["locale week of year", "week", function (c) { return String(WK(c).w); }],
+      ww: ["locale week of year, 2 digits", "week2", function (c) { return pad(WK(c).w, 2); }],
+      wo: ["locale week of year, ordinal", "weekO", function (c) { return ordMoment(WK(c).w); }],
+      W: ["ISO week of year", "iweek", function (c) { return String(ISOW(c).w); }],
+      WW: ["ISO week of year, 2 digits", "iweek2", function (c) { return pad(ISOW(c).w, 2); }],
+      Wo: ["ISO week of year, ordinal", "iweekO", function (c) { return ordMoment(ISOW(c).w); }],
+      N: ["era, abbreviated", "era", function () { return "AD"; }], NN: ["era, abbreviated", "era", function () { return "AD"; }], NNN: ["era, abbreviated", "era", function () { return "AD"; }],
+      NNNN: ["era, full name", "eraW", function () { return "Anno Domini"; }], NNNNN: ["era, narrow (en: AD)", null, function () { return "AD"; }],
+      y: ["era year", "year", function (c) { return String(c.y); }],
+      yo: ["era year, ordinal", "yearO", function (c) { return ordMoment(c.y); }],
+      yy: ["era year, zero-padded to 2 (not truncated)", "year", function (c) { return pad(c.y, 2); }],
+      yyy: ["era year, zero-padded to 3", "year", function (c) { return pad(c.y, 3); }],
+      yyyy: ["era year, zero-padded to 4", "year", function (c) { return pad(c.y, 4); }],
+      Y: ["year, padded to 4 (+ sign above 9999)", "year", function (c) { return c.y <= 9999 ? pad(c.y, 4) : "+" + c.y; }],
+      YY: ["year, 2 digits", "year2", function (c) { return pad(c.y % 100, 2); }],
+      YYYY: ["year, 4 digits", "year", function (c) { return pad(c.y, 4); }],
+      YYYYY: ["year, 5 digits", "yearN", function (c) { return pad(c.y, 5); }],
+      YYYYYY: ["year, 6 digits with sign", null, function (c) { return "+" + pad(c.y, 6); }],
+      gg: ["locale week-year, 2 digits", "wyear2", function (c) { return pad(WK(c).wy % 100, 2); }],
+      gggg: ["locale week-year", "wyear", function (c) { return pad(WK(c).wy, 4); }],
+      ggggg: ["locale week-year, 5 digits", null, function (c) { return pad(WK(c).wy, 5); }],
+      GG: ["ISO week-year, 2 digits", "iyear2", function (c) { return pad(ISOW(c).wy % 100, 2); }],
+      GGGG: ["ISO week-year", "iyear", function (c) { return pad(ISOW(c).wy, 4); }],
+      GGGGG: ["ISO week-year, 5 digits", null, function (c) { return pad(ISOW(c).wy, 5); }],
+      H: ["hour 0 to 23", "h24", function (c) { return String(c.h); }], HH: ["hour 0 to 23, 2 digits", "h24_2", function (c) { return pad(c.h, 2); }],
+      h: ["hour 1 to 12", "h12", function (c) { return String(c.h % 12 || 12); }], hh: ["hour 1 to 12, 2 digits", "h12_2", function (c) { return pad(c.h % 12 || 12, 2); }],
+      k: ["hour 1 to 24", "h24k", function (c) { return String(c.h || 24); }], kk: ["hour 1 to 24, 2 digits", "h24k_2", function (c) { return pad(c.h || 24, 2); }],
+      hmm: ["hour 1 to 12 then minute", "COMP:h12,min2", function (c) { return String(c.h % 12 || 12) + pad(c.mi, 2); }],
+      hmmss: ["hour 1 to 12, minute, second", "COMP:h12,min2,sec2", function (c) { return String(c.h % 12 || 12) + pad(c.mi, 2) + pad(c.s, 2); }],
+      Hmm: ["hour 0 to 23 then minute", "COMP:h24,min2", function (c) { return String(c.h) + pad(c.mi, 2); }],
+      Hmmss: ["hour 0 to 23, minute, second", "COMP:h24,min2,sec2", function (c) { return String(c.h) + pad(c.mi, 2) + pad(c.s, 2); }],
+      a: ["am or pm", "ampmL", function (c) { return c.h > 11 ? "pm" : "am"; }], A: ["AM or PM", "ampm", function (c) { return c.h > 11 ? "PM" : "AM"; }],
+      m: ["minute", "min", function (c) { return String(c.mi); }], mm: ["minute, 2 digits", "min2", function (c) { return pad(c.mi, 2); }],
+      s: ["second", "sec", function (c) { return String(c.s); }], ss: ["second, 2 digits", "sec2", function (c) { return pad(c.s, 2); }]
+    };
+    if (/^S{1,9}$/.test(tok)) {
+      var n = tok.length;
+      return { m: "fractional second, " + n + " digit" + (n > 1 ? "s" : ""), sem: "frac", w: n, fn: function (c) { return n <= 3 ? pad(Math.floor(c.ms / Math.pow(10, 3 - n)), n) : pad(c.ms * Math.pow(10, n - 3), n); } };
+    }
+    if (tok === "X" || tok === "x") return { m: "Unix timestamp (recognized, not evaluated)", k: "ne", sem: "ne", fn: function () { return NE("timestamp"); } };
+    if (tok === "z" || tok === "zz" || tok === "Z" || tok === "ZZ") return { m: "time zone (recognized, not evaluated)", k: "ne", sem: "ne", fn: function () { return NE("zone"); } };
+    if (Object.prototype.hasOwnProperty.call(T, tok)) { var e = T[tok]; return { m: e[0], sem: e[1], fn: e[2] }; }
+    return null;
+  }
+  function momExpand(pat) {
+    var i = 5, f = pat;
+    MOM_LOCAL.lastIndex = 0;
+    while (i >= 0 && MOM_LOCAL.test(f)) {
+      f = f.replace(MOM_LOCAL, function (x) { return Object.prototype.hasOwnProperty.call(MOM_LONG, x) ? MOM_LONG[x] : x; });
+      MOM_LOCAL.lastIndex = 0; i -= 1;
+    }
+    return f;
+  }
+  function compileMOM(pat, o) {
+    var expanded = momExpand(pat);
+    var toks = expanded.match(MOM_TOK) || [];
+    var parts = [];
+    toks.forEach(function (t) {
+      var d = momFn(t, o.mRule);
+      if (d) { parts.push({ raw: t, k: d.k || "field", m: d.m, sem: d.sem, w: d.w, fn: d.fn }); return; }
+      var text = /\[[\s\S]/.test(t) ? t.replace(/^\[|\]$/g, "") : t.replace(/\\/g, "");
+      var note = t[0] === "[" ? "bracketed literal" : t[0] === "\\" ? "escaped character" : hasLetter(t) ? "not a token: printed as is" : "literal";
+      parts.push(L(t, text, note));
+    });
+    return { parts: parts, error: null, expanded: expanded !== pat ? expanded : null };
+  }
+
+  /* ---------------- strftime ---------------- */
+  var STRF_POSIX = "aAbBcCdDeFgGhHIjmnMprRsStTuUVwWxXyYzZ%";
+  var STRF_GLIBC = STRF_POSIX + "klP";
+  var STRF_MSVC = "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%";
+  var STRF_E = "cCxXyY", STRF_O = "deHImMSuUVwWy";
+  var STRF_HASH_STRIP = "dDeFHIjmMrRSTUVWyY", STRF_HASH_IGN = "aAbBgGhnptuwXzZ%";
+  function strfVal(conv, c, plat) {
+    var iso = function () { return weekInfo(c, 0, 4); };
+    switch (conv) {
+      case "a": return { v: EN.dayA[c.wd], m: "weekday, abbreviated", sem: "wdA", t: 1 };
+      case "A": return { v: EN.dayW[c.wd], m: "weekday, full", sem: "wdW", t: 1 };
+      case "b": case "h": return { v: EN.monA[c.m - 1], m: "month, abbreviated", sem: "monA", t: 1 };
+      case "B": return { v: EN.monW[c.m - 1], m: "month, full", sem: "monW", t: 1 };
+      case "C": return { v: pad(Math.floor(c.y / 100), 2), m: "century (year / 100)", sem: "century", num: Math.floor(c.y / 100), w: 2 };
+      case "d": return { v: pad(c.d, 2), m: "day of month, 2 digits", sem: "day2", num: c.d, w: 2 };
+      case "e": return { v: spad(c.d, 2), m: "day of month, space padded", sem: "dayS", num: c.d, w: 2, sp: 1 };
+      case "g": return { v: pad(iso().wy % 100, 2), m: "ISO week-year, 2 digits", sem: "iyear2", num: iso().wy % 100, w: 2 };
+      case "G": return { v: String(iso().wy), m: "ISO 8601 week-based year", sem: "iyear", num: iso().wy, w: 0, yr: 1 };
+      case "H": return { v: pad(c.h, 2), m: "hour 00 to 23", sem: "h24_2", num: c.h, w: 2 };
+      case "I": return { v: pad(c.h % 12 || 12, 2), m: "hour 01 to 12", sem: "h12_2", num: c.h % 12 || 12, w: 2 };
+      case "j": return { v: pad(c.doy, 3), m: "day of year, 3 digits", sem: "doy3", num: c.doy, w: 3 };
+      case "k": return { v: spad(c.h, 2), m: "hour 0 to 23, space padded (glibc)", sem: null, num: c.h, w: 2, sp: 1 };
+      case "l": return { v: spad(c.h % 12 || 12, 2), m: "hour 1 to 12, space padded (glibc)", sem: null, num: c.h % 12 || 12, w: 2, sp: 1 };
+      case "m": return { v: pad(c.m, 2), m: "month, 2 digits", sem: "month2", num: c.m, w: 2 };
+      case "M": return { v: pad(c.mi, 2), m: "minute, 2 digits", sem: "min2", num: c.mi, w: 2 };
+      case "n": return { v: "\n", m: "newline", lit: 1 };
+      case "t": return { v: "\t", m: "tab", lit: 1 };
+      case "p": return { v: c.h < 12 ? "AM" : "PM", m: "AM or PM (POSIX locale)", sem: "ampm", t: 1 };
+      case "P": return { v: c.h < 12 ? "am" : "pm", m: "am or pm, lowercase (glibc)", sem: "ampmL", t: 1 };
+      case "S": return { v: pad(c.s, 2), m: "second, 2 digits", sem: "sec2", num: c.s, w: 2 };
+      case "u": return { v: String(isoDow(c)), m: "ISO weekday, 1 = Monday", sem: "isoWd", num: isoDow(c), w: 1 };
+      case "w": return { v: String(c.wd), m: "weekday, 0 = Sunday", sem: "wd0", num: c.wd, w: 1 };
+      case "U": var u = Math.floor((c.doy - 1 + 7 - c.wd) / 7); return { v: pad(u, 2), m: "week of year, first Sunday starts week 1", sem: "wsun", num: u, w: 2 };
+      case "W": var wm = Math.floor((c.doy - 1 + 7 - mod(c.wd - 1, 7)) / 7); return { v: pad(wm, 2), m: "week of year, first Monday starts week 1", sem: "wmon", num: wm, w: 2 };
+      case "V": return { v: pad(iso().w, 2), m: "ISO 8601 week, 2 digits", sem: "iweek2", num: iso().w, w: 2 };
+      case "y": return { v: pad(c.y % 100, 2), m: "year, 2 digits", sem: "year2", num: c.y % 100, w: 2 };
+      case "Y": return { v: String(c.y), m: "year", sem: "year", num: c.y, w: 0, yr: 1 };
+      case "z": case "Z": return { v: NE("zone"), m: "time zone (recognized, not evaluated)", sem: "ne", ne: 1 };
+      case "s": return { v: NE("seconds since the Epoch"), m: "seconds since the Epoch (zone dependent, not evaluated)", sem: "ne", ne: 1 };
+      case "%": return { v: "%", m: "percent sign", lit: 1 };
+    }
+    return null;
+  }
+  var STRF_COMP = { c: "%a %b %e %H:%M:%S %Y", D: "%m/%d/%y", F: "%Y-%m-%d", r: "%I:%M:%S %p", R: "%H:%M", T: "%H:%M:%S", x: "%m/%d/%y", X: "%H:%M:%S" };
+  function compileSTRF(pat, o) {
+    var plat = o.plat, parts = [], err = null, i = 0, n = pat.length;
+    var allowed = plat === "glibc" ? STRF_GLIBC : plat === "msvc" ? STRF_MSVC : STRF_POSIX;
+    function fail(raw, why) { parts.push({ raw: raw, k: "err", m: why, err: true }); if (!err) err = why + " (" + raw + ")"; }
+    while (i < n) {
+      if (pat[i] !== "%") { var j = i; while (j < n && pat[j] !== "%") j++; parts.push(L(pat.slice(i, j), pat.slice(i, j))); i = j; continue; }
+      var k = i + 1, flags = "", width = "", modc = "";
+      while (k < n && "-_0^#+".indexOf(pat[k]) >= 0) flags += pat[k++];
+      while (k < n && /[0-9]/.test(pat[k])) width += pat[k++];
+      if (k < n && (pat[k] === "E" || pat[k] === "O")) modc = pat[k++];
+      var conv = k < n ? pat[k] : "";
+      var raw = pat.slice(i, k + (conv ? 1 : 0));
+      i = k + (conv ? 1 : 0);
+      if (!conv) { fail(raw, plat === "msvc" ? "invalid formatting code: invalid parameter handler, returns 0" : "a lone % at the end: behavior is undefined"); continue; }
+      if (allowed.indexOf(conv) < 0) {
+        fail(raw, plat === "msvc" ? "invalid formatting code: invalid parameter handler, returns 0" : "not a conversion specifier here: behavior is undefined"); continue;
+      }
+      // validate flags, width and modifiers for the platform
+      if (plat === "posix") {
+        if (flags.replace(/[0+]/g, "") !== "") { fail(raw, "flag " + flags + " is not POSIX (glibc or MSVC extension)"); continue; }
+        if (flags.length > 1) { fail(raw, "more than one flag: unspecified in POSIX"); continue; }
+        if ((flags || width) && !(flags && width)) { fail(raw, "a flag needs a minimum field width and vice versa in POSIX: unspecified"); continue; }
+        if (width && "CFGY".indexOf(conv) < 0) { fail(raw, "a minimum field width is POSIX only for %C %F %G %Y: unspecified"); continue; }
+      } else if (plat === "msvc") {
+        if (flags.replace(/#/g, "") !== "" || width) { fail(raw, "only the # flag exists in MSVC: invalid formatting code"); continue; }
+      } else {
+        if (flags.indexOf("#") >= 0) { fail(raw, "glibc # flag (swap case) is not modeled here"); continue; }
+        if (flags.indexOf("+") >= 0) { fail(raw, "+ is a POSIX flag, not a glibc one: glibc copies %+ through as text"); continue; }
+      }
+      if (modc) {
+        if (plat === "msvc") { fail(raw, "E and O modifiers are not documented for MSVC: not modeled"); continue; }
+        if (flags || width) { fail(raw, "a modifier with a flag or width: unspecified in POSIX"); continue; }
+        if ((modc === "E" ? STRF_E : STRF_O).indexOf(conv) < 0) { fail(raw, "%" + modc + conv + " is not a defined modified conversion: undefined"); continue; }
+      }
+      var part = strfPart(raw, conv, flags, width, modc, plat);
+      if (part.err) { fail(raw, part.m); continue; }
+      parts.push(part);
+    }
+    return { parts: parts, error: err };
+  }
+  function strfPart(raw, conv, flags, width, modc, plat) {
+    var hash = flags.indexOf("#") >= 0;
+    var modNote = modc ? " (" + modc + " modifier: POSIX locale has no alternative, same as %" + conv + ")" : "";
+    if (STRF_COMP[conv]) {
+      if (plat === "msvc" && "cxXr".indexOf(conv) >= 0) {
+        var lbl = conv === "c" ? (hash ? "long date and time" : "date and time") : conv === "x" ? (hash ? "long date" : "date") : conv === "X" ? "time" : "12-hour time";
+        return { raw: raw, k: "ne", m: "locale " + lbl + " representation (MSVC C-locale text not modeled)", sem: "ne", fn: function () { return NE("locale " + lbl); } };
+      }
+      var joinParts = function (ps, c) { return ps.map(function (p) { return p.lit !== undefined ? p.lit : p.fn(c); }).join(""); };
+      if (plat === "msvc" && hash) {
+        // MSVC %#D %#F %#R %#T: # applies to every numeric field of the expansion (leading zeros removed)
+        var hsub = STRF_COMP[conv].replace(/%/g, "%#"), hc = compileSTRF(hsub, { plat: "msvc" });
+        return { raw: raw, k: "field", m: "equivalent to " + hsub + " (MSVC #: leading zeros removed from each field)", sem: "COMP", sub: hc.parts, ext: "msvc", fn: function (c) { return joinParts(hc.parts, c); } };
+      }
+      if (plat === "glibc" && (width || /[_0-]/.test(flags))) {
+        // glibc subformat: add() pads the whole expansion to the width, with zeros only when the last pad flag is 0, else with spaces
+        var gsub = STRF_COMP[conv], gc = compileSTRF(gsub, { plat: "glibc" }), gW = +width, gz = flags.replace(/[^_0-]/g, "").slice(-1) === "0", gup = flags.indexOf("^") >= 0;
+        return { raw: raw, k: "field", m: "equivalent to " + gsub + (conv === "c" || conv === "x" || conv === "X" || conv === "r" ? " in the POSIX locale" : "") + (gW ? ", whole result padded to width " + gW + (gz ? " with zeros" : " with spaces") : ", pad flag has no effect without a width") + (gup ? ", uppercased" : ""), sem: gW ? null : "COMP", sub: gc.parts, w: gW || null, ext: "glibc",
+          fn: function (c) { var s = joinParts(gc.parts, c); if (gup) s = s.toUpperCase(); while (s.length < gW) s = (gz ? "0" : " ") + s; return s; } };
+      }
+      if (hash ||flags.replace(/[-_^]/g, "") !== "" && conv !== "F") {
+        if (!(conv === "F" && width)) return { err: true, m: "flags on a composite conversion are not modeled here" };
+      }
+      var sub = STRF_COMP[conv];
+      var subc = compileSTRF(sub, { plat: plat === "msvc" ? "posix" : plat });
+      var up = flags.indexOf("^") >= 0;
+      if (conv === "F" && width) {
+        var yw = Math.max(+width, 6) - 6;
+        var ypart = strfPart("%" + flags + yw + "Y", "Y", flags, String(yw), "", plat);
+        if (ypart.err) return ypart;
+        var rest = compileSTRF("-%m-%d", { plat: "posix" });
+        return { raw: raw, k: "field", m: "%Y-%m-%d with the year at width " + yw, sem: "COMPF", sub: [ypart].concat(rest.parts), fn: function (c) { return ypart.fn(c) + rest.parts.map(function (p) { return p.lit !== undefined ? p.lit : p.fn(c); }).join(""); } };
+      }
+      return { raw: raw, k: "field", m: "equivalent to " + sub + (conv === "c" || conv === "x" || conv === "X" || conv === "r" ? " in the POSIX locale" : "") + modNote, sem: "COMP", sub: subc.parts,
+        fn: function (c) { var s = subc.parts.map(function (p) { return p.lit !== undefined ? p.lit : p.fn(c); }).join(""); return up ? s.toUpperCase() : s; } };
+    }
+    var probe = strfVal(conv, ctx(2000, 1, 1, 0, 0, 0, 0), plat);
+    var m = probe.m + modNote;
+    if (probe.lit) {
+      return { raw: raw, lit: probe.v, m: probe.m, k: "lit" };
+    }
+    if (probe.ne) return { raw: raw, k: "ne", m: probe.m, sem: "ne", fn: function (c) { return strfVal(conv, c, plat).v; } };
+    var sem = probe.sem, note = "";
+    if (hash) {
+      if (STRF_HASH_STRIP.indexOf(conv) >= 0) {
+        note = " (MSVC #: leading zeros or spaces removed)";
+        sem = { d: "day", e: "day", H: "h24", I: "h12", j: "doy", m: "month", M: "min", S: "sec", U: null, V: "iweek", W: null, y: "year2u", Y: "year" }[conv] || null;
+        return { raw: raw, k: "field", m: m + note, sem: sem, ext: "msvc", fn: function (c) { var s = strfVal(conv, c, plat).v; return s.replace(/^[0 ]+(?=.)/, ""); } };
+      }
+      return { raw: raw, k: "field", m: m + " (MSVC #: ignored)", sem: sem, ext: "msvc", fn: function (c) { return strfVal(conv, c, plat).v; } };
+    }
+    var minus = flags.indexOf("-") >= 0, under = flags.indexOf("_") >= 0, zero = flags.indexOf("0") >= 0, plus = flags.indexOf("+") >= 0, up = flags.indexOf("^") >= 0;
+    if (!flags && !width) {
+      return { raw: raw, k: "field", m: m, sem: sem, ext: "klP".indexOf(conv) >= 0 ? "glibc" : null, fn: function (c) { return strfVal(conv, c, plat).v; } };
+    }
+    if (probe.t) {
+      if (width || minus || under || zero || plus) return { err: true, m: "padding flags or width on a text conversion are not modeled here" };
+      return { raw: raw, k: "field", m: m + " (glibc ^: uppercase)", sem: null, ext: "glibc", fn: function (c) { return strfVal(conv, c, plat).v.toUpperCase(); } };
+    }
+    if (up && !(minus || under || zero || plus || width)) return { raw: raw, k: "field", m: m + " (glibc ^: no effect on digits)", sem: sem, ext: "glibc", fn: function (c) { return strfVal(conv, c, plat).v; } };
+    var yearLike = conv === "Y" || conv === "G" || conv === "C";
+    if (plus && !yearLike) return { err: true, m: "the + flag applies to %C %F %G %Y only" };
+    if (minus) {
+      if (width) return { err: true, m: "the - flag with a width is not modeled here" };
+      sem = { d: "day", e: "day", H: "h24", I: "h12", j: "doy", m: "month", M: "min", S: "sec", V: "iweek", y: "year2u", Y: "year", G: "iyear", k: "h24", l: "h12", u: "isoWd", w: "wd0", g: null, C: null, U: null, W: null }[conv] || null;
+      return { raw: raw, k: "field", m: m + " (glibc -: no padding)", sem: sem, ext: "glibc", fn: function (c) { return String(strfVal(conv, c, plat).num); } };
+    }
+    // glibc: the last of _ 0 - sets the pad; %e %k %l (DO_NUMBER_SPACEPAD) force _ unless that flag is 0; other numbers zero fill to the width
+    var lastPad = flags.replace(/[^_0-]/g, "").slice(-1);
+    var padc = plat === "glibc" ? (lastPad === "_" || (probe.sp && lastPad !== "0") ? " " : "0") : (under ? " " : "0");
+    var W = width ? +width : null;
+    var ext = (under || (width && !yearLike) || (plat !== "posix" && !plus && !zero && width)) ? "glibc" : null;
+    if (plat === "posix" || zero || plus) ext = (under ? "glibc" : null);
+    var semw = null;
+    if (yearLike && W) {
+      if (padc === " ") semw = null;
+      else if (conv === "Y" && W > 4) semw = "yearN";
+      else if (conv === "Y") semw = "year";
+    } else if (!W) semw = padc === " " ? ({ d: "dayS", k: null, e: "dayS" }[conv] || null) : probe.sp ? ({ e: "day2", k: "h24_2", l: "h12_2" }[conv] || null) : sem;
+    return { raw: raw, k: "field", m: m + (W ? ", minimum width " + W : "") + (plus ? ", + sign when wider than " + (conv === "C" ? 2 : 4) : "") + (padc === " " ? (under ? " (glibc _: space padded)" : "") : (zero ? ", zero padded" : "")),
+      sem: semw, w: W, ext: ext, fn: function (c) {
+        var v = strfVal(conv, c, plat), digits = String(v.num), wv = W != null ? (plat === "glibc" ? Math.max(W, v.w) : W) : v.w;
+        if (plus && W && W > (conv === "C" ? 2 : 4)) { var body = digits; while (body.length < wv - 1) body = "0" + body; return "+" + body; }
+        while (digits.length < wv) digits = padc + digits;
+        return digits;
+      } };
+  }
+
+  /* ---------------- .NET custom format, InvariantCulture ---------------- */
+  var NET_STD = { d: "MM/dd/yyyy", D: "dddd, dd MMMM yyyy", f: "dddd, dd MMMM yyyy HH:mm", F: "dddd, dd MMMM yyyy HH:mm:ss", g: "MM/dd/yyyy HH:mm", G: "MM/dd/yyyy HH:mm:ss",
+    m: "MMMM dd", M: "MMMM dd", o: "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffffffK", O: "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffffffK", r: "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'", R: "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'",
+    s: "yyyy'-'MM'-'dd'T'HH':'mm':'ss", t: "HH:mm", T: "HH:mm:ss", u: "yyyy'-'MM'-'dd HH':'mm':'ss'Z'", y: "yyyy MMMM", Y: "yyyy MMMM" };
+  function netField(ch, n) {
+    var p = { raw: new Array(n + 1).join(ch), k: "field" };
+    switch (ch) {
+      case "d": if (n === 1) { p.m = "day of month"; p.sem = "day"; p.fn = function (c) { return String(c.d); }; }
+        else if (n === 2) { p.m = "day of month, 2 digits"; p.sem = "day2"; p.fn = function (c) { return pad(c.d, 2); }; }
+        else if (n === 3) { p.m = "weekday, abbreviated"; p.sem = "wdA"; p.fn = function (c) { return EN.dayA[c.wd]; }; }
+        else { p.m = "weekday, full name"; p.sem = "wdW"; p.fn = function (c) { return EN.dayW[c.wd]; }; }
+        break;
+      case "f": case "F":
+        if (n > 7) { p.err = true; p.k = "err"; p.m = "more than 7 " + ch + " characters: FormatException"; return p; }
+        p.m = (ch === "f" ? "fraction of a second, " : "fraction of a second if non-zero, trailing zeros trimmed, ") + n + " digit" + (n > 1 ? "s" : "");
+        p.sem = ch === "f" ? "frac" : null; p.w = n; p.F = ch === "F";
+        p.fn = function (c) { var s = (pad(c.ms, 3) + "0000").slice(0, n); return ch === "f" ? s : s.replace(/0+$/, ""); };
+        break;
+      case "g": p.m = "era (invariant: A.D.)"; p.sem = null; p.fn = function () { return "A.D."; }; break;
+      case "h": p.m = "hour 1 to 12" + (n >= 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h12" : "h12_2"; p.fn = function (c) { return n === 1 ? String(c.h % 12 || 12) : pad(c.h % 12 || 12, 2); }; break;
+      case "H": p.m = "hour 0 to 23" + (n >= 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "h24" : "h24_2"; p.fn = function (c) { return n === 1 ? String(c.h) : pad(c.h, 2); }; break;
+      case "K": p.m = "zone (Kind Unspecified: prints nothing)"; p.k = "ne"; p.sem = "ne"; p.fn = function () { return ""; }; break;
+      case "m": p.m = "minute" + (n >= 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "min" : "min2"; p.fn = function (c) { return n === 1 ? String(c.mi) : pad(c.mi, 2); }; break;
+      case "M": if (n === 1) { p.m = "month"; p.sem = "month"; p.fn = function (c) { return String(c.m); }; }
+        else if (n === 2) { p.m = "month, 2 digits"; p.sem = "month2"; p.fn = function (c) { return pad(c.m, 2); }; }
+        else if (n === 3) { p.m = "month, abbreviated"; p.sem = "monA"; p.fn = function (c) { return EN.monA[c.m - 1]; }; }
+        else { p.m = "month, full name"; p.sem = "monW"; p.fn = function (c) { return EN.monW[c.m - 1]; }; }
+        break;
+      case "s": p.m = "second" + (n >= 2 ? ", 2 digits" : ""); p.sem = n === 1 ? "sec" : "sec2"; p.fn = function (c) { return n === 1 ? String(c.s) : pad(c.s, 2); }; break;
+      case "t": p.m = n === 1 ? "first letter of AM or PM" : "AM or PM"; p.sem = n === 1 ? null : "ampm"; p.fn = function (c) { var s = c.h < 12 ? "AM" : "PM"; return n === 1 ? s[0] : s; }; break;
+      case "y": if (n === 1) { p.m = "year mod 100, no padding"; p.sem = "year2u"; p.fn = function (c) { return String(c.y % 100); }; }
+        else if (n === 2) { p.m = "year mod 100, 2 digits"; p.sem = "year2"; p.fn = function (c) { return pad(c.y % 100, 2); }; }
+        else { p.m = "year, at least " + n + " digits"; p.sem = n <= 4 ? "year" : "yearN"; p.w = n; p.fn = function (c) { return pad(c.y, n); }; }
+        break;
+      case "z": p.m = "offset from UTC (local machine, not evaluated)"; p.k = "ne"; p.sem = "ne"; p.fn = function () { return NE("zone"); }; break;
+    }
+    return p;
+  }
+  function compileNET(pat, o, inner) {
+    var parts = [], err = null, std = null;
+    if (!inner && pat.length === 1) {
+      if (Object.prototype.hasOwnProperty.call(NET_STD, pat)) {
+        std = pat;
+        var sub = compileNET(NET_STD[pat], o, true);
+        sub.std = std;
+        return sub;
+      }
+      if (pat === "U") return { parts: [{ raw: "U", k: "ne", m: "standard universal full date/time (converts to UTC, not evaluated)", sem: "ne", fn: function () { return NE("UTC conversion"); } }], error: null, std: "U" };
+      return { parts: [{ raw: pat, k: "err", m: "one character that is not a standard format specifier: FormatException", err: true }], error: "FormatException: a one-character format string is read as a STANDARD format, and \"" + pat + "\" is not one. Write %" + pat + " for the custom specifier.", std: null };
+    }
+    var i = 0, n = pat.length;
+    function failAt(raw, why) { parts.push({ raw: raw, k: "err", m: why, err: true }); if (!err) err = "FormatException: " + why; }
+    while (i < n) {
+      var ch = pat[i];
+      if ("dfFghHKmMstyz".indexOf(ch) >= 0) {
+        var j = i; while (j < n && pat[j] === ch) j++;
+        var f = netField(ch, j - i);
+        if (f.err) failAt(f.raw, f.m); else parts.push(f);
+        i = j; continue;
+      }
+      if (ch === ":" || ch === "/") { parts.push(L(ch, ch, ch === ":" ? "time separator (invariant :)" : "date separator (invariant /)")); i++; continue; }
+      if (ch === "'" || ch === '"') {
+        var k = i + 1, txt = "", closed = false;
+        while (k < n) { if (pat[k] === "\\" && k + 1 < n) { txt += pat[k + 1]; k += 2; continue; } if (pat[k] === ch) { closed = true; k++; break; } txt += pat[k]; k++; }
+        if (!closed) { failAt(pat.slice(i, k), "unterminated quoted string"); i = k; continue; }
+        parts.push(L(pat.slice(i, k), txt, "quoted literal")); i = k; continue;
+      }
+      if (ch === "%") {
+        if (i + 1 < n && pat[i + 1] !== "%") {
+          var inner2 = compileNET(pat[i + 1], o, true);
+          if (inner2.error) { failAt(pat.slice(i, i + 2), inner2.error.replace(/^FormatException: /, "")); i += 2; continue; }
+          inner2.parts.forEach(function (q) { q.raw = "%" + q.raw; q.m = q.m + " (%: single custom specifier)"; parts.push(q); });
+          i += 2; continue;
+        }
+        failAt(pat.slice(i, i + 2), "% must be followed by one specifier character"); i += 2; continue;
+      }
+      if (ch === "\\") {
+        if (i + 1 < n) { parts.push(L(pat.slice(i, i + 2), pat[i + 1], "escaped character")); i += 2; continue; }
+        failAt("\\", "a backslash at the end of the format"); i++; continue;
+      }
+      parts.push(L(ch, ch, hasLetter(ch) ? "not a specifier: copied unchanged" : "literal")); i++;
+    }
+    return { parts: parts, error: err, std: null };
+  }
+
+  /* ---------------- run ---------------- */
+  var DIALECTS = {
+    uts: { name: "UTS 35 (CLDR 48.2 week data)", compile: compileUTS },
+    dfns: { name: "date-fns 4.x", compile: compileDF },
+    mom: { name: "moment 2.x (en)", compile: compileMOM },
+    strf: { name: "strftime", compile: compileSTRF },
+    net: { name: ".NET custom, InvariantCulture", compile: compileNET }
+  };
+  var CACHE = {};
+  function optKey(d, o) {
+    if (d === "uts") return o.uRule.first + "/" + o.uRule.minDays;
+    if (d === "dfns") return o.dRule.first + "/" + o.dRule.minDays + "/" + (o.dFlags.wy ? 1 : 0) + (o.dFlags.doy ? 1 : 0);
+    if (d === "mom") return o.mRule.dow + "/" + o.mRule.doy;
+    if (d === "strf") return o.plat;
+    return "";
+  }
+  function compile(d, pat, o) {
+    var key = d + "\u0001" + optKey(d, o) + "\u0001" + pat;
+    var v = CACHE[key];
+    if (!v) { v = DIALECTS[d].compile(pat, o); CACHE[key] = v; }
+    return v;
+  }
+  function exec(comp, c) {
+    var out = "";
+    for (var i = 0; i < comp.parts.length; i++) { var p = comp.parts[i]; out += p.lit !== undefined ? p.lit : p.fn(c); }
+    // .NET: an F field that printed nothing also removes a "." right before it
+    return out;
+  }
+  function execNET(comp, c) {
+    var out = "";
+    for (var i = 0; i < comp.parts.length; i++) {
+      var p = comp.parts[i], s = p.lit !== undefined ? p.lit : p.fn(c);
+      if (p.F && s === "" && out[out.length - 1] === ".") out = out.slice(0, -1);
+      out += s;
+    }
+    return out;
+  }
+  function fmt(d, pat, c, o) {
+    var comp = compile(d, pat, o);
+    if (comp.error) return { ok: false, out: comp.error };
+    return { ok: true, out: d === "net" ? execNET(comp, c) : exec(comp, c) };
+  }
+  function run(d, pat, c, o) {
+    var comp = compile(d, pat, o);
+    var chips = comp.parts.map(function (p) {
+      var v = p.lit !== undefined ? p.lit : (p.err ? "" : p.fn(c));
+      return { t: p.raw, m: p.m, v: v, k: p.k || "field" };
+    });
+    var r = fmt(d, pat, c, o);
+    return { chips: chips, ok: r.ok, out: r.out, warns: comp.warns || [], expanded: comp.expanded || null, std: comp.std || null };
+  }
+
+  /* ---------------- VIEW B: semantic translation ---------------- */
+  // For each semantic field: the token per dialect. A string is the token. null = no equivalent.
+  // strf entries may be {glibc, msvc} when only an extension has it. "rule" marks week-rule dependent fields.
+  var SEM = {
+    year: { l: "calendar year", uts: "yyyy", dfns: "yyyy", mom: "YYYY", strf: "%Y", net: "yyyy", core: 1 },
+    year2: { l: "two-digit year", uts: "yy", dfns: "yy", mom: "YY", strf: "%y", net: "yy", core: 1 },
+    year2u: { l: "year mod 100, unpadded", uts: null, dfns: null, mom: null, strf: { glibc: "%-y", msvc: "%#y" }, net: "%y" },
+    yearO: { l: "ordinal year", uts: null, dfns: "yo", mom: "yo", strf: null, net: null },
+    wyear: { l: "week-based year (locale week rule)", uts: "YYYY", dfns: "YYYY", mom: "gggg", strf: null, net: null, rule: 1 },
+    wyear2: { l: "two-digit week-based year (locale week rule)", uts: "YY", dfns: "YY", mom: "gg", strf: null, net: null, rule: 1 },
+    iyear: { l: "ISO week-based year", uts: null, dfns: "RRRR", mom: "GGGG", strf: "%G", net: null, iso: "YYYY" },
+    iyear2: { l: "two-digit ISO week-based year", uts: null, dfns: null, mom: "GG", strf: "%g", net: null, iso: "YY" },
+    week: { l: "week of year (locale week rule)", uts: "w", dfns: "w", mom: "w", strf: null, net: null, rule: 1 },
+    week2: { l: "week of year, 2 digits (locale week rule)", uts: "ww", dfns: "ww", mom: "ww", strf: null, net: null, rule: 1 },
+    weekO: { l: "ordinal week (locale week rule)", uts: null, dfns: "wo", mom: "wo", strf: null, net: null, rule: 1 },
+    iweek: { l: "ISO week", uts: null, dfns: "I", mom: "W", strf: { glibc: "%-V", msvc: "%#V" }, net: null, iso: "w" },
+    iweek2: { l: "ISO week, 2 digits", uts: null, dfns: "II", mom: "WW", strf: "%V", net: null, iso: "ww" },
+    iweekO: { l: "ordinal ISO week", uts: null, dfns: "Io", mom: "Wo", strf: null, net: null },
+    wsun: { l: "week of year, first Sunday starts week 1 (%U)", uts: null, dfns: null, mom: null, strf: "%U", net: null },
+    wmon: { l: "week of year, first Monday starts week 1 (%W)", uts: null, dfns: null, mom: null, strf: "%W", net: null },
+    century: { l: "century", uts: null, dfns: null, mom: null, strf: "%C", net: null },
+    quarter: { l: "quarter", uts: "Q", dfns: "Q", mom: "Q", strf: null, net: null },
+    quarter2: { l: "quarter, 2 digits", uts: "QQ", dfns: "QQ", mom: null, strf: null, net: null },
+    quarterA: { l: "quarter, abbreviated", uts: "QQQ", dfns: "QQQ", mom: null, strf: null, net: null },
+    quarterW: { l: "quarter, wide", uts: "QQQQ", dfns: "QQQQ", mom: null, strf: null, net: null },
+    quarterO: { l: "ordinal quarter", uts: null, dfns: "Qo", mom: "Qo", strf: null, net: null },
+    month: { l: "month number", uts: "M", dfns: "M", mom: "M", strf: { glibc: "%-m", msvc: "%#m" }, net: "M", core: 1 },
+    month2: { l: "month, 2 digits", uts: "MM", dfns: "MM", mom: "MM", strf: "%m", net: "MM", core: 1 },
+    monthO: { l: "ordinal month", uts: null, dfns: "Mo", mom: "Mo", strf: null, net: null },
+    monA: { l: "month, abbreviated name", uts: "MMM", dfns: "MMM", mom: "MMM", strf: "%b", net: "MMM", core: 1 },
+    monW: { l: "month, full name", uts: "MMMM", dfns: "MMMM", mom: "MMMM", strf: "%B", net: "MMMM", core: 1 },
+    monN: { l: "month, narrow name", uts: "MMMMM", dfns: "MMMMM", mom: null, strf: null, net: null },
+    day: { l: "day of month", uts: "d", dfns: "d", mom: "D", strf: { glibc: "%-d", msvc: "%#d" }, net: "d", core: 1 },
+    day2: { l: "day of month, 2 digits", uts: "dd", dfns: "dd", mom: "DD", strf: "%d", net: "dd", core: 1 },
+    dayS: { l: "day of month, space padded", uts: null, dfns: null, mom: null, strf: "%e", net: null },
+    dayO: { l: "ordinal day of month", uts: null, dfns: "do", mom: "Do", strf: null, net: null },
+    doy: { l: "day of year", uts: "D", dfns: "D", mom: "DDD", strf: { glibc: "%-j", msvc: "%#j" }, net: null, core: 1 },
+    doy2: { l: "day of year, at least 2 digits", uts: "DD", dfns: "DD", mom: null, strf: null, net: null },
+    doy3: { l: "day of year, 3 digits", uts: "DDD", dfns: "DDD", mom: "DDDD", strf: "%j", net: null, core: 1 },
+    doyO: { l: "ordinal day of year", uts: null, dfns: "Do", mom: "DDDo", strf: null, net: null },
+    wdA: { l: "weekday, abbreviated name", uts: "EEE", dfns: "EEE", mom: "ddd", strf: "%a", net: "ddd", core: 1 },
+    wdW: { l: "weekday, full name", uts: "EEEE", dfns: "EEEE", mom: "dddd", strf: "%A", net: "dddd", core: 1 },
+    wdN: { l: "weekday, narrow name", uts: "EEEEE", dfns: "EEEEE", mom: null, strf: null, net: null },
+    wdS: { l: "weekday, two-letter name", uts: "EEEEEE", dfns: "EEEEEE", mom: "dd", strf: null, net: null },
+    isoWd: { l: "ISO weekday 1 to 7, Monday = 1", uts: null, dfns: "i", mom: "E", strf: "%u", net: null, core: 1, iso: "e" },
+    wd0: { l: "weekday 0 to 6, Sunday = 0", uts: null, dfns: null, mom: "d", strf: "%w", net: null, core: 1 },
+    locWd1: { l: "local weekday 1 to 7 (week rule start day = 1)", uts: "e", dfns: "e", mom: null, strf: null, net: null, rule: 1 },
+    locWd1_2: { l: "local weekday, 2 digits", uts: "ee", dfns: "ee", mom: null, strf: null, net: null, rule: 1 },
+    locWd0: { l: "local weekday 0 to 6 (week rule start day = 0)", uts: null, dfns: null, mom: "e", strf: null, net: null, rule: 1 },
+    h24: { l: "hour 0 to 23", uts: "H", dfns: "H", mom: "H", strf: { glibc: "%-H", msvc: "%#H" }, net: "H", core: 1 },
+    h24_2: { l: "hour 0 to 23, 2 digits", uts: "HH", dfns: "HH", mom: "HH", strf: "%H", net: "HH", core: 1 },
+    h12: { l: "hour 1 to 12", uts: "h", dfns: "h", mom: "h", strf: { glibc: "%-I", msvc: "%#I" }, net: "h", core: 1 },
+    h12_2: { l: "hour 1 to 12, 2 digits", uts: "hh", dfns: "hh", mom: "hh", strf: "%I", net: "hh", core: 1 },
+    h11: { l: "hour 0 to 11", uts: "K", dfns: "K", mom: null, strf: null, net: null },
+    h11_2: { l: "hour 0 to 11, 2 digits", uts: "KK", dfns: "KK", mom: null, strf: null, net: null },
+    h24k: { l: "hour 1 to 24", uts: "k", dfns: "k", mom: "k", strf: null, net: null },
+    h24k_2: { l: "hour 1 to 24, 2 digits", uts: "kk", dfns: "kk", mom: "kk", strf: null, net: null },
+    min: { l: "minute", uts: "m", dfns: "m", mom: "m", strf: { glibc: "%-M", msvc: "%#M" }, net: "m", core: 1 },
+    min2: { l: "minute, 2 digits", uts: "mm", dfns: "mm", mom: "mm", strf: "%M", net: "mm", core: 1 },
+    sec: { l: "second", uts: "s", dfns: "s", mom: "s", strf: { glibc: "%-S", msvc: "%#S" }, net: "s", core: 1 },
+    sec2: { l: "second, 2 digits", uts: "ss", dfns: "ss", mom: "ss", strf: "%S", net: "ss", core: 1 },
+    ampm: { l: "AM or PM", uts: "a", dfns: "a", mom: "A", strf: "%p", net: "tt", core: 1 },
+    ampmL: { l: "am or pm, lowercase", uts: null, dfns: "aaa", mom: "a", strf: { glibc: "%P" }, net: null },
+    ampmN: { l: "a or p", uts: "aaaaa", dfns: "aaaaa", mom: null, strf: null, net: null },
+    era: { l: "era, abbreviated (AD)", uts: "G", dfns: "G", mom: "N", strf: null, net: null },
+    eraW: { l: "era, full name", uts: "GGGG", dfns: "GGGG", mom: "NNNN", strf: null, net: null },
+    msday: { l: "milliseconds in day", uts: "A", dfns: null, mom: null, strf: null, net: null }
+  };
+  function semToken(key, d, w, o) {
+    if (key === "frac") {
+      if (d === "strf") return null;
+      if (d === "net") return w <= 7 ? new Array(w + 1).join("f") : null;
+      if (d === "mom") return w <= 9 ? new Array(w + 1).join("S") : null;
+      return new Array(w + 1).join("S");
+    }
+    if (key === "yearN") {
+      if (d === "uts" || d === "dfns" || d === "net") return new Array(w + 1).join("y");
+      if (d === "mom") return w === 5 ? "YYYYY" : null;
+      if (d === "strf") return o.plat === "msvc" ? null : "%0" + w + "Y";
+      return null;
+    }
+    if (key === "msday") return d === "uts" ? new Array((w || 1) + 1).join("A") : null;
+    var e = SEM[key];
+    if (!e) return null;
+    var t = e[d];
+    if (d === "uts" && t == null && e.iso && o.uRule.first === 0 && o.uRule.minDays === 4) return { tok: e.iso, note: "region " + o.uRule.region + " uses Monday and minDays 4, so its week fields are ISO 8601" };
+    if (t && typeof t === "object") {
+      if (o.plat === "posix") return { tok: null, alt: t, note: "no exact POSIX equivalent" + (t.glibc ? "; glibc " + t.glibc : "") + (t.msvc ? "; MSVC " + t.msvc : "") };
+      var x = t[o.plat];
+      return x ? { tok: x, note: o.plat === "glibc" ? "glibc extension" : "MSVC extension" } : { tok: null, note: "no " + (o.plat === "msvc" ? "MSVC" : "glibc") + " equivalent" + (t.glibc ? "; glibc " + t.glibc : "") };
+    }
+    if (d === "dfns" && (key === "wyear" || key === "wyear2") && !o.dFlags.wy) return { tok: t, flag: "wy", note: "needs useAdditionalWeekYearTokens: true (round trip and output below use it)" };
+    if (d === "dfns" && (key === "doy" || key === "doy2") && !o.dFlags.doy) return { tok: t, flag: "doy", note: "needs useAdditionalDayOfYearTokens: true (round trip and output below use it)" };
+    return t;
+  }
+  function semParse(d, pat, o) {
+    var comp = compile(d, pat, o);
+    if (comp.error) return { error: comp.error };
+    var items = [];
+    function addPart(p) {
+      if (p.lit !== undefined) { if (p.lit !== "") items.push({ lit: p.lit }); return; }
+      if (p.sem === "COMP" || p.sem === "COMPF") { (p.sub || []).forEach(addPart); return; }
+      if (typeof p.sem === "string" && p.sem.indexOf("COMP:") === 0) { p.sem.slice(5).split(",").forEach(function (k) { items.push({ sem: k, raw: p.raw }); }); return; }
+      if (p.sem === "empty") return;
+      if (p.sem === "ne") { items.push({ ne: true, raw: p.raw, l: p.m }); return; }
+      if (!p.sem) { items.push({ un: true, raw: p.raw, l: p.m }); return; }
+      items.push({ sem: p.sem, w: p.w, raw: p.raw });
+    }
+    comp.parts.forEach(addPart);
+    return { items: items };
+  }
+  function escLit(d, s) {
+    if (s === "") return "";
+    if (d === "uts" || d === "dfns") {
+      if (!/[A-Za-z']/.test(s)) return s;
+      if (!hasLetter(s)) return s.replace(/'/g, "''");
+      return "'" + s.replace(/'/g, "''") + "'";
+    }
+    if (d === "mom") {
+      var out = "", run = "";
+      for (var i = 0; i < s.length; i++) {
+        var ch = s[i];
+        if (ch === "[" || ch === "]" || ch === "\\") { if (run) { out += "[" + run + "]"; run = ""; } out += ch === "\\" ? "[\\]" : "\\" + ch; }
+        else run += ch;
+      }
+      if (run) out += /^[^A-Za-z]*$/.test(run) && !/[\[\]\\]/.test(run) ? run : "[" + run + "]";
+      return out;
+    }
+    if (d === "strf") return s.replace(/%/g, "%%");
+    if (d === "net") {
+      if (!/[A-Za-z%'"\\:\/]/.test(s)) return s;
+      return "'" + s.replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+    }
+    return s;
+  }
+  function emit(d, items, o) {
+    var pieces = [], missing = [], notes = [], i = 0, need = { wy: false, doy: false };
+    while (i < items.length) {
+      var it = items[i];
+      if (it.lit !== undefined) { var s = ""; while (i < items.length && items[i].lit !== undefined) { s += items[i].lit; i++; } pieces.push({ txt: escLit(d, s), lit: true }); continue; }
+      i++;
+      if (it.ne) { missing.push(it.raw + " (" + it.l + ", not translated)"); pieces.push({ txt: NE("no translation: " + it.raw), miss: true }); continue; }
+      if (it.un) { missing.push(it.raw + " (" + it.l + ")"); pieces.push({ txt: NE("no equivalent: " + it.raw), miss: true }); continue; }
+      var t = semToken(it.sem, d, it.w, o), label = it.sem === "frac" ? "fraction of a second, " + it.w + " digits" : it.sem === "yearN" ? "year padded to " + it.w : (SEM[it.sem] ? SEM[it.sem].l : it.sem);
+      if (t && typeof t === "object") { if (t.note && notes.indexOf(t.note) < 0) notes.push(t.note); if (t.flag) need[t.flag] = true; t = t.tok; }
+      if (!t) { missing.push(label); pieces.push({ txt: NE("no equivalent: " + label), miss: true }); continue; }
+      if (SEM[it.sem] && SEM[it.sem].rule) { var rn = "week rule dependent: equivalent only when the week rules match"; if (notes.indexOf(rn) < 0) notes.push(rn); }
+      if (d === "mom" && it.sem === "locWd0") notes.push("moment e is 0-based");
+      pieces.push({ txt: t, tok: true });
+    }
+    // adjacent fields that would merge into one token
+    for (var k = 1; k < pieces.length; k++) {
+      var a = pieces[k - 1], b = pieces[k];
+      if (a.tok && b.tok && d !== "strf") {
+        var la = a.txt[a.txt.length - 1], fb = b.txt[0];
+        if (la === fb) {
+          if (d === "mom") { a.txt = a.txt + "[]"; }
+          else if (d === "net") { a.txt = a.txt + "''"; }
+          else { missing.push("adjacent fields " + a.txt + " and " + b.txt + " would merge; add a separator"); }
+        }
+      }
+    }
+    var pat = pieces.map(function (p) { return p.txt; }).join("");
+    if (d === "net" && !missing.length && pat.length === 1 && "dfFghHKmMstyz".indexOf(pat) >= 0) { pat = "%" + pat; notes.push("a one-character .NET format is a standard format, so the custom specifier is written %" + pat.slice(1)); }
+    return { pat: pat, missing: missing, notes: notes, need: need };
+  }
+  function targetOpts(d, x, o) {
+    if (d !== "dfns" || !x.need || (!x.need.wy && !x.need.doy)) return o;
+    return { uRule: o.uRule, dRule: o.dRule, dFlags: { wy: o.dFlags.wy || x.need.wy, doy: o.dFlags.doy || x.need.doy }, mRule: o.mRule, plat: o.plat, dLoc: o.dLoc };
+  }
+  function translate(src, pat, o) {
+    var parsed = semParse(src, pat, o);
+    if (parsed.error) return { error: parsed.error };
+    var out = {};
+    Object.keys(DIALECTS).forEach(function (d) {
+      if (d === src) { out[d] = { pat: pat, missing: [], notes: ["source"], source: true }; return; }
+      out[d] = emit(d, parsed.items, o);
+    });
+    return { items: parsed.items, targets: out };
+  }
+  var RT_START = dayNum(2020, 1, 1), RT_END = dayNum(2030, 12, 31);
+  function roundTrip(src, sp, tgt, tp, o, oT) {
+    oT = oT || o;
+    var n = 0, m = 0, first = null;
+    for (var dn = RT_START; dn <= RT_END; dn++) {
+      for (var pass = 0; pass < 2; pass++) {
+        var i = dn - RT_START;
+        var c = pass === 0 ? ctxFromDn(dn, 12, 0, 0, 0) : ctxFromDn(dn, i % 24, (i * 7) % 60, (i * 13) % 60, (i * 37) % 1000);
+        var a = fmt(src, sp, c, o), b = fmt(tgt, tp, c, oT);
+        m++;
+        if (a.ok && b.ok && a.out === b.out) n++;
+        else if (!first) first = { date: c, a: a.out, b: b.out };
+      }
+    }
+    return { n: n, m: m, first: first };
+  }
+  function trapDays(y, rule) {
+    var res = [];
+    for (var dn = dayNum(y, 1, 1); dn <= dayNum(y, 12, 31); dn++) {
+      var c = ctxFromDn(dn, 12, 0, 0, 0), w = weekInfo(c, rule.first, rule.minDays);
+      if (w.wy !== c.y) res.push({ c: c, wy: w.wy, w: w.w });
+    }
+    return res;
+  }
+  return { ctx: ctx, ctxFromDn: ctxFromDn, dayNum: dayNum, weekInfo: weekInfo, week1Start: week1Start, localDow: localDow, isoDow: isoDow, momWeek: momWeek,
+    regionRule: regionRule, dfnsRule: dfnsRule, momRule: momRule, dfnsLocales: dfnsLocales, DIALECTS: DIALECTS, SEM: SEM, semToken: semToken,
+    run: run, fmt: fmt, compile: compile, translate: translate, targetOpts: targetOpts, roundTrip: roundTrip, trapDays: trapDays, pad: pad, mod: mod, EN: EN, DAYNAME: DAYNAME };
+})();
+</script>
+
+<script id="selftest">
+var DFPT_TEST = (function (E) {
+  "use strict";
+  var D8 = [[2024, 12, 28], [2024, 12, 29], [2024, 12, 30], [2024, 12, 31], [2021, 1, 1], [2021, 1, 3], [2026, 12, 27], [2027, 1, 1]];
+  function opts(region, dl, flags, mr, plat) {
+    var dw = dl || [0, 1], m = mr || [0, 6];
+    return { uRule: E.regionRule(region || "US"), dRule: E.dfnsRule(dw[0], dw[1]), dFlags: flags || { wy: false, doy: false }, mRule: E.momRule(m[0], m[1]), plat: plat || "posix" };
+  }
+  var FX = [];
+  function fx(name, d, pat, o, expect, dates) { FX.push({ name: name, d: d, pat: pat, o: o, expect: expect, dates: dates || D8 }); }
+  var US = opts("US"), DE = opts("DE"), AU = opts("AU"), IN = opts("IN"), PT = opts("PT");
+  var DFF = opts("US", [0, 1], { wy: true, doy: true });
+  var plain = ["2024-12-28", "2024-12-29", "2024-12-30", "2024-12-31", "2021-01-01", "2021-01-03", "2026-12-27", "2027-01-01"];
+  var usY = ["2024-12-28", "2025-12-29", "2025-12-30", "2025-12-31", "2021-01-01", "2021-01-03", "2027-12-27", "2027-01-01"];
+  var usW = ["2024-W52-7", "2025-W01-1", "2025-W01-2", "2025-W01-3", "2021-W01-6", "2021-W02-1", "2027-W01-1", "2027-W01-6"];
+  var usYY = ["24 24", "24 25", "24 25", "24 25", "21 21", "21 21", "26 27", "27 27"];
+  var usD = ["363 363 363", "364 364 364", "365 365 365", "366 366 366", "1 01 001", "3 03 003", "361 361 361", "1 01 001"];
+  var deY = ["2024-12-28", "2024-12-29", "2025-12-30", "2025-12-31", "2020-01-01", "2020-01-03", "2026-12-27", "2026-01-01"];
+  var deW = ["2024-W52-6", "2024-W52-7", "2025-W01-1", "2025-W01-2", "2020-W53-5", "2020-W53-7", "2026-W52-7", "2026-W53-5"];
+  var ptY = ["2024-12-28", "2025-12-29", "2025-12-30", "2025-12-31", "2020-01-01", "2021-01-03", "2026-12-27", "2026-01-01"];
+  fx("UTS 35 US YYYY-MM-dd", "uts", "YYYY-MM-dd", US, usY);
+  fx("UTS 35 US YYYY-'W'ww-e", "uts", "YYYY-'W'ww-e", US, usW);
+  fx("UTS 35 US yy YY", "uts", "yy YY", US, usYY);
+  fx("UTS 35 US D DD DDD", "uts", "D DD DDD", US, usD);
+  fx("UTS 35 US quotes", "uts", "''yy 'o''clock'", US, ["'24 o'clock", "'24 o'clock", "'24 o'clock", "'24 o'clock", "'21 o'clock", "'21 o'clock", "'26 o'clock", "'27 o'clock"]);
+  fx("UTS 35 DE YYYY-MM-dd", "uts", "YYYY-MM-dd", DE, deY);
+  fx("UTS 35 DE YYYY-'W'ww-e", "uts", "YYYY-'W'ww-e", DE, deW);
+  fx("UTS 35 AU YYYY-MM-dd", "uts", "YYYY-MM-dd", AU, ["2024-12-28", "2024-12-29", "2025-12-30", "2025-12-31", "2021-01-01", "2021-01-03", "2026-12-27", "2027-01-01"]);
+  fx("UTS 35 IN YYYY-MM-dd", "uts", "YYYY-MM-dd", IN, usY);
+  fx("UTS 35 PT YYYY-MM-dd", "uts", "YYYY-MM-dd", PT, ptY);
+  fx("date-fns enUS, flags on, YYYY-MM-dd", "dfns", "YYYY-MM-dd", DFF, usY);
+  fx("date-fns enUS, flags on, YYYY-'W'ww-e", "dfns", "YYYY-'W'ww-e", DFF, usW);
+  fx("date-fns enUS, flags on, yy YY", "dfns", "yy YY", DFF, usYY);
+  fx("date-fns enUS, flags on, D DD DDD", "dfns", "D DD DDD", DFF, usD);
+  fx("date-fns RRRR-'W'II-i", "dfns", "RRRR-'W'II-i", opts("US"), deW);
+  fx("date-fns enAU (1/4) YYYY-MM-dd", "dfns", "YYYY-MM-dd", opts("US", [1, 4], { wy: true, doy: true }), deY);
+  fx("date-fns enIN (1/4) YYYY-MM-dd", "dfns", "YYYY-MM-dd", opts("US", [1, 4], { wy: true, doy: true }), deY);
+  fx("date-fns pt (0/4) YYYY-MM-dd", "dfns", "YYYY-MM-dd", opts("US", [0, 4], { wy: true, doy: true }), ptY);
+  fx("date-fns flags off: YYYY throws", "dfns", "YYYY", US, ["ERR"], [[2024, 12, 30]]);
+  fx("date-fns flags off: DD throws", "dfns", "DD", US, ["ERR"], [[2024, 12, 30]]);
+  fx("date-fns flags off: Y warns and formats", "dfns", "Y", US, ["2025"], [[2024, 12, 30]]);
+  fx("moment en YYYY-MM-DD", "mom", "YYYY-MM-DD", US, plain);
+  fx("moment en gggg-[W]ww-e", "mom", "gggg-[W]ww-e", US, ["2024-W52-6", "2025-W01-0", "2025-W01-1", "2025-W01-2", "2021-W01-5", "2021-W02-0", "2027-W01-0", "2027-W01-5"]);
+  fx("moment GGGG-[W]WW-E", "mom", "GGGG-[W]WW-E", US, deW);
+  fx("moment DDD DDDD", "mom", "DDD DDDD", US, ["363 363", "364 364", "365 365", "366 366", "1 001", "3 003", "361 361", "1 001"]);
+  fx("moment yy YY", "mom", "yy YY", US, ["2024 24", "2024 24", "2024 24", "2024 24", "2021 21", "2021 21", "2026 26", "2027 27"]);
+  fx("moment YYY", "mom", "YYY", US, ["242024", "242024", "242024", "242024", "212021", "212021", "262026", "272027"]);
+  fx("moment MMMMM", "mom", "MMMMM", US, ["December12", "December12", "December12", "December12", "January1", "January1", "December12", "January1"]);
+  fx("moment unknown letters and brackets", "mom", "YYYY nn b [YYYY]", US, ["2024 nn b YYYY"], [[2024, 12, 30]]);
+  fx("strftime %G-W%V-%u", "strf", "%G-W%V-%u", US, deW);
+  fx("strftime %j", "strf", "%j", US, ["363", "364", "365", "366", "001", "003", "361", "001"]);
+  fx("strftime %U %W", "strf", "%U %W", US, ["51 52", "52 52", "52 53", "52 53", "00 00", "01 00", "52 51", "00 00"]);
+  fx("strftime %y %g %C", "strf", "%y %g %C", US, ["24 24 20", "24 24 20", "24 25 20", "24 25 20", "21 20 20", "21 20 20", "26 26 20", "27 26 20"]);
+  fx("strftime POSIX example 1997-12-30 %G %V", "strf", "%G %V", US, ["1998 01"], [[1997, 12, 30]]);
+  // glibc time/strftime_l.c: %e %k %l force the _ pad unless the flag is 0; DO_NUMBER zero fills to max(digits, width); subformat pads the whole result with spaces unless the flag is 0
+  var GL = opts("US", null, null, null, "glibc"), GD = [[2024, 12, 5, 7, 3, 9, 0]];
+  fx("strftime glibc %5e|%4k|%4l space padded", "strf", "%5e|%4k|%4l", GL, ["    5|   7|   7"], GD);
+  fx("strftime glibc %05e|%_3d|%3d|%10Y zero unless _", "strf", "%05e|%_3d|%3d|%10Y", GL, ["00005|  5|005|0000002024"], GD);
+  fx("strftime glibc %12F|%012F|%10D whole result padded", "strf", "%12F|%012F|%10D", GL, ["  2024-12-05|002024-12-05|  12/05/24"], GD);
+  fx("strftime glibc %+6Y is not a glibc flag", "strf", "%+6Y", GL, ["ERR"], GD);
+  var MS = opts("US", null, null, null, "msvc"), MD = [[1997, 1, 1, 10, 9, 25, 0]];
+  fx("strftime MSVC %#D|%#F|%#R|%#T, UCRT measured", "strf", "%#D|%#F|%#R|%#T", MS, ["1/1/97|1997-1-1|10:9|10:9:25"], MD);
+  fx(".NET YYYY-MM-DD", "net", "YYYY-MM-DD", US, ["YYYY-12-DD", "YYYY-12-DD", "YYYY-12-DD", "YYYY-12-DD", "YYYY-01-DD", "YYYY-01-DD", "YYYY-12-DD", "YYYY-01-DD"]);
+  fx(".NET yy y", "net", "yy y", US, ["24 24", "24 24", "24 24", "24 24", "21 21", "21 21", "26 26", "27 27"]);
+  fx(".NET %d", "net", "%d", US, ["28", "29", "30", "31", "1", "3", "27", "1"]);
+  fx(".NET MMMMM", "net", "MMMMM", US, ["December", "December", "December", "December", "January", "January", "December", "January"]);
+  fx(".NET D (standard long date)", "net", "D", US, ["Saturday, 28 December 2024"], [[2024, 12, 28]]);
+  fx(".NET h alone throws", "net", "h", US, ["ERR"], [[2024, 12, 28]]);
+  var T = [[2024, 3, 5, 14, 7, 9, 45]];
+  fx(".NET full specifier row, 2024-03-05 14:07:09.045", "net", "y yy yyy yyyy yyyyy M MM h hh H HH m mm s ss f ff fff FF tt", US, ["24 24 2024 2024 02024 3 03 2 02 14 14 7 07 9 09 0 04 045 04 PM"], T);
+  fx(".NET hhh", "net", "hhh", US, ["02"], T);
+  fx("UTS 35 US yy y yyy yyyyy", "uts", "yy y yyy yyyyy", US, ["24 2024 2024 02024"], T);
+  fx("UTS 35 US D DD DDD (March)", "uts", "D DD DDD", US, ["65 65 065"], T);
+  fx("UTS 35 US EEEEEE e ee", "uts", "EEEEEE e ee", US, ["Tu 3 03"], T);
+  fx("UTS 35 US SSSS A", "uts", "SSSS A", US, ["0450 50829045"], T);
+  fx("UTS 35 US G GGGG GGGGG", "uts", "G GGGG GGGGG", US, ["AD Anno Domini A"], T);
+  fx("UTS 35 US w ww", "uts", "w ww", US, ["10 10"], T);
+
+  function checkFixture(f) {
+    var bad = [];
+    f.dates.forEach(function (dd, i) {
+      var c = E.ctx(dd[0], dd[1], dd[2], dd.length > 3 ? dd[3] : 12, dd[4] || 0, dd[5] || 0, dd[6] || 0);
+      var r = E.fmt(f.d, f.pat, c, f.o);
+      var got = r.ok ? r.out : "ERR";
+      var want = f.expect[i] !== undefined ? f.expect[i] : f.expect[0];
+      if (got !== want) bad.push(dd.slice(0, 3).join("-") + ": got " + JSON.stringify(got) + ", want " + JSON.stringify(want));
+    });
+    return bad;
+  }
+  function isoIndependent(c) {
+    // year of the Thursday in the Monday-start week
+    var thu = c.dn - ((c.wd || 7) - 1) + 3;
+    return new Date(thu * 86400000).getUTCFullYear();
+  }
+  function oracleISO() {
+    var bad = 0, n = 0;
+    for (var dn = E.dayNum(1990, 1, 1); dn <= E.dayNum(2050, 12, 31); dn++) {
+      var c = E.ctxFromDn(dn, 12, 0, 0, 0); n++;
+      if (E.weekInfo(c, 0, 4).wy !== isoIndependent(c)) bad++;
+    }
+    return { n: n, bad: bad };
+  }
+  function oracleBrute() {
+    var bad = 0, n = 0;
+    for (var first = 0; first < 7; first++) for (var md = 1; md <= 7; md++) {
+      for (var y = 2000; y <= 2040; y++) {
+        // brute force: scan from Dec 20 of y-1 for the first day that starts a week and has at least md of its 7 days in year y
+        var j1 = E.dayNum(y, 1, 1), found = null;
+        for (var dn = E.dayNum(y - 1, 12, 20); dn <= E.dayNum(y, 1, 14); dn++) {
+          var c = E.ctxFromDn(dn, 12, 0, 0, 0);
+          if (E.localDow(c, first) !== 1) continue;
+          var inY = 0; for (var k = 0; k < 7; k++) if (dn + k >= j1) inY++;
+          if (inY >= md) { found = dn; break; }
+        }
+        n++;
+        if (found !== E.week1Start(y, first, md)) bad++;
+      }
+    }
+    return { n: n, bad: bad };
+  }
+  function oracleMoment() {
+    // moment's own week arithmetic must equal the general algorithm for every valid dow/doy pair
+    var bad = 0, n = 0;
+    for (var dow = 0; dow < 7; dow++) for (var doy = dow; doy <= dow + 6; doy++) {
+      var r = E.momRule(dow, doy);
+      for (var y = 2019; y <= 2031; y++) for (var md = 0; md < 2; md++) {
+        var dates = md === 0 ? [[y, 1, 1], [y, 1, 2], [y, 1, 3], [y, 1, 4], [y, 1, 5], [y, 1, 6], [y, 1, 7]] : [[y, 12, 25], [y, 12, 26], [y, 12, 27], [y, 12, 28], [y, 12, 29], [y, 12, 30], [y, 12, 31]];
+        dates.forEach(function (d) {
+          var c = E.ctx(d[0], d[1], d[2], 12, 0, 0, 0), a = E.momWeek(c, r), b = E.weekInfo(c, r.first, r.minDays);
+          n++; if (a.wy !== b.wy || a.w !== b.w) bad++;
+        });
+      }
+    }
+    return { n: n, bad: bad };
+  }
+  function exactRows() {
+    // every core row marked as an exact equivalent must round trip on every day, in every dialect pair that has a token
+    var o = opts("US"), bad = [], n = 0, dialects = ["uts", "dfns", "mom", "strf", "net"];
+    Object.keys(E.SEM).forEach(function (k) {
+      var e = E.SEM[k];
+      if (!e.core) return;
+      var toks = dialects.map(function (d) { var t = E.semToken(k, d, 0, o); return typeof t === "string" ? t : null; });
+      var base = -1;
+      for (var i = 0; i < toks.length; i++) if (toks[i]) { base = i; break; }
+      for (var j = base + 1; j < toks.length; j++) {
+        if (!toks[j]) continue;
+        var bp = dialects[base] === "net" && toks[base].length === 1 ? "%" + toks[base] : toks[base];
+        var tp = dialects[j] === "net" && toks[j].length === 1 ? "%" + toks[j] : toks[j];
+        var r = E.roundTrip(dialects[base], bp, dialects[j], tp, o); n++;
+        if (r.n !== r.m) bad.push(k + ": " + dialects[base] + " " + bp + " vs " + dialects[j] + " " + tp + " matched " + r.n + " of " + r.m);
+      }
+    });
+    return { n: n, bad: bad };
+  }
+  function positiveControl() {
+    // A deliberately broken week rule (US rule with the first day shifted from Sunday to Monday) must FAIL the UTS 35 US fixture.
+    var broken = { uRule: { region: "US", first: 0, minDays: 1, label: "mutant" }, dRule: E.dfnsRule(0, 1), dFlags: { wy: false, doy: false }, mRule: E.momRule(0, 6), plat: "posix" };
+    var f = { d: "uts", pat: "YYYY-MM-dd", o: broken, expect: usY, dates: D8 };
+    return checkFixture(f).length > 0;
+  }
+  function runAll() {
+    var res = [];
+    FX.forEach(function (f) { var b = checkFixture(f); res.push({ name: "Fixture: " + f.name, ok: b.length === 0, detail: b.join("; ") }); });
+    var iso = oracleISO(); res.push({ name: "Oracle: week algorithm with (Monday, 4) equals the year of the Thursday, every day 1990 to 2050", ok: iso.bad === 0, detail: (iso.n - iso.bad) + " of " + iso.n + " days agree" });
+    var br = oracleBrute(); res.push({ name: "Oracle: brute-force week-1 scan equals the algorithm for all 49 (first day, minDays) pairs, 2000 to 2040", ok: br.bad === 0, detail: (br.n - br.bad) + " of " + br.n + " year starts agree" });
+    var mo = oracleMoment(); res.push({ name: "Oracle: moment's own week arithmetic equals the algorithm for every valid dow/doy pair", ok: mo.bad === 0, detail: (mo.n - mo.bad) + " of " + mo.n + " dates agree" });
+    var ex = exactRows(); res.push({ name: "Every core row marked exact round trips on every day 2020 to 2030 (US rules)", ok: ex.bad.length === 0, detail: (ex.n - ex.bad.length) + " of " + ex.n + " pairs match fully" + (ex.bad.length ? ": " + ex.bad.join("; ") : "") });
+    var pc = positiveControl(); res.push({ name: "Positive control: a mutant week rule (US with weeks starting Monday) must fail the US fixture", ok: pc, detail: pc ? "failure detected, as it must be" : "NOT detected: the fixtures are not discriminating" , control: true });
+    return res;
+  }
+  return { runAll: runAll, fixtures: FX };
+})(DFPT);
+</script>
+
+<script id="ui">
+(function (E, ST) {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "theme";
+  var btn = $("theme-toggle");
+  function cur() { return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  function label() { var t = cur(); btn.textContent = t === "dark" ? "Light theme" : "Dark theme"; btn.setAttribute("aria-label", t === "dark" ? "Switch to light theme" : "Switch to dark theme"); }
+  btn.addEventListener("click", function () {
+    var t = cur() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+    label();
+  });
+  label();
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); }
+  function show(s) { return s.replace(/\n/g, "↵").replace(/\t/g, "⇥"); }
+
+  var locs = E.dfnsLocales();
+  var sel = $("dfns-loc");
+  locs.forEach(function (l) { var op = el("option", null, l.name + " (" + l.wso + " / " + l.fwcd + ")"); op.value = l.name; if (l.name === "enUS") op.selected = true; sel.appendChild(op); });
+
+  function parseDate(s) {
+    var m = /^\s*(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?\s*$/.exec(s);
+    if (!m) return { err: "Date must look like 2026-12-28 12:00:00.000" };
+    var y = +m[1], mo = +m[2], d = +m[3], h = m[4] ? +m[4] : 0, mi = m[5] ? +m[5] : 0, se = m[6] ? +m[6] : 0, ms = m[7] ? +(m[7] + "00").slice(0, 3) : 0;
+    if (y < 1000 || y > 9999) return { err: "Year must be 1000 to 9999." };
+    if (mo < 1 || mo > 12) return { err: "Month must be 01 to 12." };
+    var dim = new Date(Date.UTC(2000, mo, 0)).getUTCDate(); if (mo === 2) dim = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+    if (d < 1 || d > dim) return { err: "Day out of range for that month." };
+    if (h > 23 || mi > 59 || se > 59) return { err: "Time out of range (hours 00 to 23, minutes and seconds 00 to 59)." };
+    return { c: E.ctx(y, mo, d, h, mi, se, ms) };
+  }
+  function readOpts() {
+    var errs = [];
+    var rr = E.regionRule($("region").value);
+    if (!rr) { errs.push("Region must be a CLDR territory code: two letters (US) or three digits (001). Language tags such as en-US are not resolved."); rr = E.regionRule("US"); }
+    $("region-rule").textContent = rr.label + (rr.inherited ? " (not listed for every key: inherits 001 where missing)" : "");
+    var l = locs.filter(function (x) { return x.name === sel.value; })[0] || locs[0];
+    var dow = parseInt($("mom-dow").value, 10), doy = parseInt($("mom-doy").value, 10);
+    if (!(dow >= 0 && dow <= 6) || !(doy >= dow && doy <= dow + 6)) { errs.push("moment: dow must be 0 to 6 and doy between dow and dow + 6, so that minDays = 7 + dow - doy is 1 to 7."); dow = 0; doy = 6; }
+    var mr = E.momRule(dow, doy);
+    $("mom-rule").textContent = "Week starts " + E.DAYNAME[mr.first] + ", minDays " + mr.minDays + ".";
+    return { o: { uRule: rr, dRule: E.dfnsRule(l.wso, l.fwcd), dFlags: { wy: $("flag-wy").checked, doy: $("flag-doy").checked }, mRule: mr, plat: $("plat").value, dLoc: l.name }, errs: errs };
+  }
+
+  function renderA(pat, c, o) {
+    var box = $("view-a"); clear(box);
+    ["uts", "dfns", "mom", "strf", "net"].forEach(function (d) {
+      var card = el("section", "card"); card.setAttribute("aria-label", E.DIALECTS[d].name);
+      card.appendChild(el("h3", null, E.DIALECTS[d].name));
+      var sub = d === "uts" ? o.uRule.label + ". English names." : d === "dfns" ? "Week options from " + o.dLoc + ": " + o.dRule.label + ". Flags: " + (o.dFlags.wy ? "week-year on" : "week-year off") + ", " + (o.dFlags.doy ? "day-of-year on" : "day-of-year off") + "."
+        : d === "mom" ? "en names, week " + o.mRule.label + "." : d === "strf" ? ({ posix: "POSIX.1-2024 only", glibc: "glibc", msvc: "MSVC" })[o.plat] + ", C / POSIX locale." : "InvariantCulture, DateTime Kind Unspecified.";
+      card.appendChild(el("p", "sub", sub));
+      if (!pat) { card.appendChild(el("p", "out err", "Enter a pattern.")); box.appendChild(card); return; }
+      var r = E.run(d, pat, c, o);
+      if (r.std) card.appendChild(el("p", "small", "One character: read as the standard format \"" + r.std + "\"."));
+      if (r.expanded) card.appendChild(el("p", "small", "Long-format tokens expanded first to: " + r.expanded));
+      var ol = el("ol", "chips"); ol.setAttribute("aria-label", "tokens");
+      r.chips.forEach(function (ch) {
+        var li = el("li", "k-" + ch.k);
+        li.appendChild(el("span", "t", show(ch.t)));
+        li.appendChild(el("span", "m", ch.m));
+        if (ch.k !== "lit" && ch.k !== "err") li.appendChild(el("span", "v", "→ " + (ch.v === "" ? "(nothing)" : show(ch.v))));
+        ol.appendChild(li);
+      });
+      card.appendChild(ol);
+      var out = el("pre", r.ok ? "out" : "out err", r.ok ? (r.out === "" ? "(empty string)" : r.out) : r.out);
+      out.setAttribute("aria-label", E.DIALECTS[d].name + " output");
+      card.appendChild(out);
+      if (r.warns.length) card.appendChild(el("p", "msg-warn", "console.warn for: " + r.warns.join(", ") + " (still formats)"));
+      box.appendChild(card);
+    });
+  }
+
+  function renderB(pat, c, o) {
+    var tb = $("view-b").querySelector("tbody"); clear(tb);
+    var src = $("src").value;
+    if (!pat) { var tr0 = el("tr"); var td0 = el("td", null, "Enter a pattern."); td0.colSpan = 5; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+    var t = E.translate(src, pat, o);
+    if (t.error) { var tr = el("tr"); var td = el("td", "msg-err", "The source pattern does not format under " + E.DIALECTS[src].name + ": " + t.error); td.colSpan = 5; tr.appendChild(td); tb.appendChild(tr); return; }
+    ["uts", "dfns", "mom", "strf", "net"].forEach(function (d) {
+      var x = t.targets[d], tr = el("tr");
+      var th = el("th", null, E.DIALECTS[d].name); th.scope = "row"; tr.appendChild(th);
+      var tdp = el("td"); tdp.appendChild(el("span", "pat", x.pat)); tr.appendChild(tdp);
+      var oT = E.targetOpts(d, x, o);
+      if (x.missing.length) tr.appendChild(el("td", "msg-warn", "not run: incomplete"));
+      else { var now = E.fmt(d, x.pat, c, oT); tr.appendChild(el("td", now.ok ? "mono" : "msg-err", now.ok ? show(now.out) : now.out)); }
+      var rt = el("td");
+      if (x.source) rt.textContent = "source";
+      else if (x.missing.length) { rt.className = "msg-warn"; rt.textContent = "not run: " + x.missing.length + " field" + (x.missing.length > 1 ? "s have" : " has") + " no equivalent"; }
+      else {
+        var r = E.roundTrip(src, pat, d, x.pat, o, oT);
+        rt.className = r.n === r.m ? "msg-ok" : "msg-warn";
+        rt.textContent = "matches on " + r.n + " of " + r.m;
+        if (r.first) rt.appendChild(el("span", "hint", "first difference " + E.pad(r.first.date.y, 4) + "-" + E.pad(r.first.date.m, 2) + "-" + E.pad(r.first.date.d, 2) + ": " + show(r.first.a) + " vs " + show(r.first.b)));
+      }
+      tr.appendChild(rt);
+      var tn = el("td");
+      var notes = x.missing.map(function (m) { return "No equivalent: " + m; }).concat(x.notes.filter(function (n) { return n !== "source"; }));
+      if (notes.length) { var ul = el("ul", "notes"); notes.forEach(function (n) { ul.appendChild(el("li", n.indexOf("No equivalent") === 0 ? "msg-warn" : null, n)); }); tn.appendChild(ul); }
+      tr.appendChild(tn);
+      tb.appendChild(tr);
+    });
+  }
+
+  function renderTrap(o) {
+    var box = $("trap-out"); clear(box);
+    var y = parseInt($("trap-year").value, 10);
+    if (!(y >= 1001 && y <= 9998)) { box.appendChild(el("p", "msg-err", "Year must be 1001 to 9998.")); return; }
+    var rules = [
+      ["UTS 35, " + o.uRule.label, o.uRule],
+      ["date-fns, " + o.dLoc + " (" + o.dRule.label + ")", o.dRule],
+      ["moment, " + o.mRule.label, o.mRule],
+      ["ISO 8601 (strftime %G, date-fns R, moment G)", { first: 0, minDays: 4 }]
+    ];
+    var tbl = el("table"); var cap = el("caption", "sr", "Trap dates for " + y); tbl.appendChild(cap);
+    var hr = el("tr"); ["Rule", "Days in " + y + " whose week-year is not " + y].forEach(function (h) { var th = el("th", null, h); th.scope = "col"; hr.appendChild(th); });
+    var thead = el("thead"); thead.appendChild(hr); tbl.appendChild(thead);
+    var tbody = el("tbody");
+    rules.forEach(function (r) {
+      var days = E.trapDays(y, r[1]);
+      var tr = el("tr"); var th = el("th", null, r[0]); th.scope = "row"; tr.appendChild(th);
+      var td = el("td", "trap");
+      if (!days.length) td.textContent = "none";
+      else td.textContent = days.map(function (x) { return E.pad(x.c.m, 2) + "-" + E.pad(x.c.d, 2) + " " + E.EN.dayA[x.c.wd] + " → " + x.wy + " week " + x.w; }).join(", ");
+      tr.appendChild(td); tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    var wrap = el("div", "tablewrap"); wrap.appendChild(tbl); box.appendChild(wrap);
+  }
+
+  function isNote() {
+    var c = E.ctx(2024, 12, 29, 12, 0, 0, 0);
+    var a = E.weekInfo(c, 0, 4).wy, b = E.weekInfo(c, 6, 4).wy;
+    $("is-note").textContent = "Computed here: 2024-12-29 has week-year " + a + " under the old IS rule (Monday, minDays 4) and " + b + " under the CLDR 48.2 rule (Sunday, minDays 4).";
+  }
+
+  function update() {
+    var ro = readOpts(), msgs = ro.errs.slice();
+    var pd = parseDate($("dt").value);
+    if (pd.err) msgs.push(pd.err);
+    var st = $("in-status"); clear(st);
+    msgs.forEach(function (m) { st.appendChild(el("span", "msg-err", m + " ")); });
+    if (pd.err) { clear($("view-a")); clear($("view-b").querySelector("tbody")); renderTrap(ro.o); return; }
+    var pat = $("pat").value;
+    renderA(pat, pd.c, ro.o);
+    renderB(pat, pd.c, ro.o);
+    renderTrap(ro.o);
+  }
+  var tmr = null;
+  function later() { clearTimeout(tmr); tmr = setTimeout(update, 120); }
+  ["pat", "dt", "region", "trap-year", "mom-dow", "mom-doy"].forEach(function (id) { $(id).addEventListener("input", later); });
+  ["dfns-loc", "flag-wy", "flag-doy", "plat", "src"].forEach(function (id) { $(id).addEventListener("change", update); });
+  $("mom-pre").addEventListener("change", function () {
+    var v = $("mom-pre").value; if (v === "custom") return;
+    var a = v.split("/"); $("mom-dow").value = a[0]; $("mom-doy").value = a[1]; update();
+  });
+  ["mom-dow", "mom-doy"].forEach(function (id) { $(id).addEventListener("input", function () { $("mom-pre").value = "custom"; }); });
+  $("dt").addEventListener("input", function () { var m = /^\s*(\d{4})/.exec($("dt").value); if (m && +m[1] >= 1001 && +m[1] <= 9998) $("trap-year").value = m[1]; });
+
+  $("guess").addEventListener("click", function () {
+    var p = $("pat").value, g, why;
+    if (/%[-_0^#+]*\d*[EO]?[A-Za-z%]/.test(p)) { g = "strf"; why = "it contains % conversions"; }
+    else if (/\[[^\]]*\]/.test(p) || /\b(gggg|GGGG|Do|DDDD)\b/.test(p) || /YYYY.*DD|DD.*YYYY/.test(p) && !/dd/.test(p)) { g = "mom"; why = "it uses moment-only shapes such as [..], Do, gggg, or YYYY with DD"; }
+    else if (/tt|fff|zzz|\\/.test(p) && !/'/.test(p)) { g = "net"; why = "it uses .NET-only shapes such as tt, fff or a backslash escape"; }
+    else if (/RRRR|II|\bi\b|\bP+p*\b|do/.test(p)) { g = "dfns"; why = "it uses date-fns-only tokens such as RRRR, II, i, P or do"; }
+    else { g = "uts"; why = "nothing dialect-specific was found, so the base standard is assumed"; }
+    $("src").value = g;
+    $("guess-out").textContent = "Guess: " + E.DIALECTS[g].name + ", because " + why + ". This is a heuristic guess, not a detection. Check it.";
+    update();
+  });
+
+  function runSelfTest() {
+    var t0 = Date.now();
+    var res = ST.runAll();
+    var ok = res.filter(function (r) { return r.ok; }).length;
+    var list = $("st-list"); clear(list);
+    res.forEach(function (r) {
+      var li = el("li");
+      li.appendChild(el("span", r.ok ? "msg-ok" : "msg-err", r.ok ? "PASS " : "FAIL "));
+      li.appendChild(document.createTextNode(r.name + (r.detail ? ". " + r.detail : "")));
+      list.appendChild(li);
+    });
+    var msg = ok + " of " + res.length + " checks passed in " + (Date.now() - t0) + " ms.";
+    var s = $("st-status"); clear(s); s.appendChild(el("span", ok === res.length ? "msg-ok" : "msg-err", msg));
+    $("st-sum").textContent = "(" + ok + " of " + res.length + " passed)";
+    if (ok !== res.length) $("st-box").open = true;
+  }
+  $("st-run").addEventListener("click", runSelfTest);
+
+  isNote();
+  update();
+  setTimeout(runSelfTest, 30);
+})(DFPT, DFPT_TEST);
+</script>
+</body>
+</html>
